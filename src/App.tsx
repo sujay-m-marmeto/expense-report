@@ -9,6 +9,7 @@ import { TabNav } from "./components/TabNav";
 import { ExpenseList } from "./components/ExpenseList";
 import { SplitView } from "./components/SplitView";
 import { PaymentsView } from "./components/PaymentsView";
+import { MyDuesView } from "./components/MyDuesView";
 import { TravellersList } from "./components/TravellersList";
 import { AddExpenseModal } from "./components/AddExpenseModal";
 import { EditExpenseModal } from "./components/EditExpenseModal";
@@ -102,6 +103,15 @@ function App() {
                 travellers={travellers}
                 splits={splits}
                 onSaveSplit={saveSplit}
+              />
+            )}
+
+            {activeTab === "dues" && (
+              <MyDuesView
+                travellers={travellers}
+                expenses={expenses}
+                splits={splits}
+                balances={balances}
               />
             )}
 

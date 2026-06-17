@@ -8,7 +8,8 @@ interface TabNavProps {
 const tabs: { id: TabId; label: string; icon: string }[] = [
   { id: "expenses", label: "Expenses", icon: "💰" },
   { id: "split", label: "Split", icon: "⚖️" },
-  { id: "payments", label: "Payments", icon: "📝" },
+  { id: "payments", label: "Pay", icon: "📝" },
+  { id: "dues", label: "My Dues", icon: "💸" },
   { id: "travellers", label: "People", icon: "👥" },
 ];
 
@@ -18,7 +19,7 @@ export function TabNav({ activeTab, onTabChange }: TabNavProps) {
       className="fixed bottom-0 left-0 right-0 z-40 border-t border-white/40 bg-white/85 backdrop-blur-lg safe-area-bottom"
       aria-label="Main navigation"
     >
-      <div className="flex mx-auto max-w-lg">
+      <div className="flex mx-auto max-w-lg overflow-x-auto scrollbar-none">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
@@ -34,7 +35,7 @@ export function TabNav({ activeTab, onTabChange }: TabNavProps) {
               aria-current={isActive ? "page" : undefined}
             >
               <span className="text-lg leading-none" aria-hidden="true">{tab.icon}</span>
-              <span className={`text-[10px] font-semibold leading-tight ${isActive ? "text-lavender-700" : ""}`}>
+              <span className={`text-[9px] font-semibold leading-tight ${isActive ? "text-lavender-700" : ""}`}>
                 {tab.label}
               </span>
               {isActive && (

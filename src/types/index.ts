@@ -28,4 +28,24 @@ export interface ExpenseSplit {
   amount: number;
 }
 
-export type TabId = "expenses" | "split" | "payments" | "travellers";
+export interface PayeeSettlement {
+  name: string;
+  phone: string;
+  amount: number;
+}
+
+export interface ExpenseOwed {
+  expenseName: string;
+  owes: number;
+}
+
+export interface PersonDues {
+  name: string;
+  totalOwes: number;
+  totalGetsBack: number;
+  balance: number;
+  payees: PayeeSettlement[];
+  expenseOwes: ExpenseOwed[];
+}
+
+export type TabId = "expenses" | "split" | "payments" | "dues" | "travellers";

@@ -1,4 +1,4 @@
-import type { Expense, Traveller, PersonBalance, ExpenseSplit } from "../types";
+import type { Expense, Traveller, PersonBalance, ExpenseSplit, PersonDues, PayeeSettlement, ExpenseOwed } from "../types";
 
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -117,4 +117,56 @@ export function getExpenseOwesBreakdown(
       owes,
     };
   });
+}
+
+export function calculatePersonDues(
+  personName: string,
+  expenses: Expense[],
+  travellers: Traveller[],
+  splits: ExpenseSplit[],
+  balances: PersonBalance[]
+): PersonDues | null {
+  const personKey = normalizeKey(personName);
+  const personBalance = balances.find((b) => normalizeKey(b.name) === personKey);
+  if (!personBalance) return null;
+
+  const expenseOwes: ExpenseOwed[] = [];
+
+  for (const expense of expenses) {
+    const breakdown = getExpenseOwesBreakdown(expense, travellers, splits);
+    const person = breakdown.find((p) => normalizeKey(p.name) === personKey);
+    if (person && person.owes > 0) {
+      expenseOwes.push({ expenseName: expense.name, owes: person.owes });
+    }
+  }
+
+  const payees: PayeeSettlement[] = [];
+
+  if (personBalance.balance < 0) {
+    let remaining = Math.round(-personBalance.balance);
+    const creditors = balances
+      .filter((b) => b.balance > 0 && normalizeKey(b.name) !== personKey)
+      .sort((a, b) => b.balance - a.balance);
+
+    for (const creditor of creditors) {
+      if (remaining <= 0) break;
+      const payAmount = Math.min(Math.round(creditor.balance), remaining);
+      const traveller = travellers.find((t) => normalizeKey(t.name) === normalizeKey(creditor.name));
+      payees.push({
+        name: creditor.name,
+        phone: traveller?.phone ?? creditor.phone,
+        amount: payAmount,
+      });
+      remaining -= payAmount;
+    }
+  }
+
+  return {
+    name: personName,
+    totalOwes: personBalance.balance < 0 ? Math.round(-personBalance.balance) : 0,
+    totalGetsBack: personBalance.balance > 0 ? Math.round(personBalance.balance) : 0,
+    balance: personBalance.balance,
+    payees,
+    expenseOwes,
+  };
 }
