@@ -3,7 +3,7 @@ import type { TabId, Expense } from "./types";
 import { useExpenses } from "./hooks/useExpenses";
 import { useTravellers } from "./hooks/useTravellers";
 import { useSplits } from "./hooks/useSplits";
-import { calculateBalances, calculatePersonDues, getTotalExpenses } from "./utils/calculations";
+import { calculateBalances, calculatePersonDues, getTotalExpenses, getExpensesPaidBy, getTotalPaidBy } from "./utils/calculations";
 import { USER_STORAGE_KEY } from "./config";
 import { Header } from "./components/Header";
 import { TabNav } from "./components/TabNav";
@@ -25,6 +25,7 @@ function App() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [expenseFilter, setExpenseFilter] = useState<"all" | "mine">("all");
   const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [dataReady, setDataReady] = useState(false);
@@ -43,6 +44,18 @@ function App() {
     [expenses, travellers, splits]
   );
   const perPerson = travellers.length > 0 ? total / travellers.length : 0;
+
+  const userPaidTotal = useMemo(
+    () => (currentUser ? getTotalPaidBy(currentUser, expenses) : 0),
+    [currentUser, expenses]
+  );
+
+  const filteredExpenses = useMemo(() => {
+    if (expenseFilter === "mine" && currentUser) {
+      return getExpensesPaidBy(currentUser, expenses);
+    }
+    return expenses;
+  }, [expenseFilter, currentUser, expenses]);
 
   const userDues = useMemo(() => {
     if (!currentUser) return null;
@@ -134,10 +147,12 @@ function App() {
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-lavender-700/80">
-                  All Expenses
+                  {expenseFilter === "mine" ? "My Expenses" : "All Expenses"}
                 </h2>
                 <p className="text-2xl font-bold text-lavender-900">
-                  {formatCurrency(total)}
+                  {expenseFilter === "mine"
+                    ? formatCurrency(userPaidTotal)
+                    : formatCurrency(total)}
                 </p>
               </div>
               <button
@@ -149,8 +164,34 @@ function App() {
                 +
               </button>
             </div>
+
+            <div className="mb-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setExpenseFilter("all")}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all ${
+                  expenseFilter === "all"
+                    ? "bg-lavender-600 text-white shadow-md shadow-lavender-400/30"
+                    : "bg-white/80 text-lavender-700 border border-lavender-200"
+                }`}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setExpenseFilter("mine")}
+                className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-all ${
+                  expenseFilter === "mine"
+                    ? "bg-lavender-600 text-white shadow-md shadow-lavender-400/30"
+                    : "bg-white/80 text-lavender-700 border border-lavender-200"
+                }`}
+              >
+                My expenses
+              </button>
+            </div>
+
             <ExpenseList
-              expenses={expenses}
+              expenses={filteredExpenses}
               travellers={travellers}
               splits={splits}
               onEdit={setEditingExpense}
@@ -186,6 +227,7 @@ function App() {
             expenses={expenses}
             splits={splits}
             balances={balances}
+            onEditExpense={setEditingExpense}
           />
         )}
 

@@ -3,6 +3,7 @@ import type { Expense, Traveller, PersonBalance, ExpenseSplit } from "../types";
 import { calculatePersonDues, formatCurrency } from "../utils/calculations";
 import { Card } from "./Card";
 import { CopyPhoneButton } from "./CopyPhoneButton";
+import { UserPaidExpenses } from "./UserPaidExpenses";
 
 interface MyDuesViewProps {
   currentUser: string;
@@ -10,6 +11,7 @@ interface MyDuesViewProps {
   expenses: Expense[];
   splits: ExpenseSplit[];
   balances: PersonBalance[];
+  onEditExpense?: (expense: Expense) => void;
 }
 
 export function MyDuesView({
@@ -18,6 +20,7 @@ export function MyDuesView({
   expenses,
   splits,
   balances,
+  onEditExpense,
 }: MyDuesViewProps) {
   const dues = useMemo(
     () => calculatePersonDues(currentUser, expenses, travellers, splits, balances),
@@ -90,6 +93,12 @@ export function MyDuesView({
           </>
         )}
       </Card>
+
+      <UserPaidExpenses
+        personName={currentUser}
+        expenses={expenses}
+        onEdit={onEditExpense}
+      />
 
       {dues.payees.length > 0 && (
         <div>

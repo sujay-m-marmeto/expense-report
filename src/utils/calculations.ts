@@ -120,6 +120,15 @@ export function getTotalExpenses(expenses: Expense[]): number {
   return expenses.reduce((sum, e) => sum + e.amount, 0);
 }
 
+export function getExpensesPaidBy(personName: string, expenses: Expense[]): Expense[] {
+  const key = personName.trim().toLowerCase();
+  return expenses.filter((e) => e.paidBy.trim().toLowerCase() === key);
+}
+
+export function getTotalPaidBy(personName: string, expenses: Expense[]): number {
+  return getExpensesPaidBy(personName, expenses).reduce((sum, e) => sum + e.amount, 0);
+}
+
 export function getExpenseSplitTotal(splits: ExpenseSplit[], expenseName: string): number {
   return getSplitsForExpense(splits, expenseName).reduce((sum, s) => sum + s.amount, 0);
 }
