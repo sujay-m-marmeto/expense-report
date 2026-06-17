@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { TabId } from "./types";
+import type { TabId, Expense } from "./types";
 import { useExpenses } from "./hooks/useExpenses";
 import { useTravellers } from "./hooks/useTravellers";
 import { useSplits } from "./hooks/useSplits";
@@ -8,8 +8,10 @@ import { Header } from "./components/Header";
 import { TabNav } from "./components/TabNav";
 import { ExpenseList } from "./components/ExpenseList";
 import { SplitView } from "./components/SplitView";
+import { PaymentsView } from "./components/PaymentsView";
 import { TravellersList } from "./components/TravellersList";
 import { AddExpenseModal } from "./components/AddExpenseModal";
+import { EditExpenseModal } from "./components/EditExpenseModal";
 import { LoadingSpinner } from "./components/LoadingSpinner";
 import { DemoBanner } from "./components/DemoBanner";
 import { formatCurrency } from "./utils/calculations";
@@ -17,9 +19,10 @@ import { formatCurrency } from "./utils/calculations";
 function App() {
   const [activeTab, setActiveTab] = useState<TabId>("expenses");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  const { expenses, loading: expensesLoading, error: expensesError, isDemo: expensesDemo, addExpense } = useExpenses();
+  const { expenses, loading: expensesLoading, error: expensesError, isDemo: expensesDemo, addExpense, updateExpense } = useExpenses();
   const { travellers, loading: travellersLoading, error: travellersError, isDemo: travellersDemo } = useTravellers();
   const { splits, loading: splitsLoading, error: splitsError, saveSplit } = useSplits();
 
@@ -73,7 +76,12 @@ function App() {
                     +
                   </button>
                 </div>
-                <ExpenseList expenses={expenses} />
+                <ExpenseList
+                  expenses={expenses}
+                  travellers={travellers}
+                  splits={splits}
+                  onEdit={setEditingExpense}
+                />
               </section>
             )}
 
@@ -84,12 +92,17 @@ function App() {
                   total={total}
                   perPerson={perPerson}
                   travellerCount={travellers.length}
-                  expenses={expenses}
-                  travellers={travellers}
-                  splits={splits}
-                  onSaveSplit={saveSplit}
                 />
               </section>
+            )}
+
+            {activeTab === "payments" && (
+              <PaymentsView
+                expenses={expenses}
+                travellers={travellers}
+                splits={splits}
+                onSaveSplit={saveSplit}
+              />
             )}
 
             {activeTab === "travellers" && (
@@ -116,6 +129,14 @@ function App() {
           travellers={travellerNames}
           onClose={() => setShowAddModal(false)}
           onSubmit={addExpense}
+        />
+      )}
+
+      {editingExpense && (
+        <EditExpenseModal
+          expense={editingExpense}
+          onClose={() => setEditingExpense(null)}
+          onSubmit={updateExpense}
         />
       )}
     </div>

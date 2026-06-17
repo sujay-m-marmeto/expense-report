@@ -64,6 +64,21 @@ function doPost(e) {
     return jsonResponse({ success: true });
   }
 
+  if (data.action === "updateExpense") {
+    const sheet = ss.getSheetByName(EXPENSES_SHEET);
+    if (!sheet) {
+      return jsonResponse({ error: "Expenses sheet not found" });
+    }
+
+    const rowIndex = Number(data.rowIndex);
+    const sheetRow = rowIndex + 2;
+
+    sheet.getRange(sheetRow, 1).setValue(String(data.name).trim());
+    sheet.getRange(sheetRow, 2).setValue(Number(data.amount));
+
+    return jsonResponse({ success: true });
+  }
+
   if (data.action === "saveSplit") {
     let sheet = ss.getSheetByName(SPLITS_SHEET);
 

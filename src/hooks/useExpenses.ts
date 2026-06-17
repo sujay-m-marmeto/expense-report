@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Expense } from "../types";
-import { fetchExpenses, addExpense as addExpenseToSheet } from "../services/sheets";
+import { fetchExpenses, addExpense as addExpenseToSheet, updateExpense as updateExpenseOnSheet } from "../services/sheets";
 import { isSheetsConfigured } from "../config";
 
 export function useExpenses() {
@@ -32,6 +32,7 @@ export function useExpenses() {
       if (isDemo) {
         const newExpense: Expense = {
           id: `local-${Date.now()}`,
+          rowIndex: expenses.length,
           name,
           amount,
           paidBy,
@@ -44,8 +45,25 @@ export function useExpenses() {
       await addExpenseToSheet(name, amount, paidBy);
       await load();
     },
+    [isDemo, load, expenses.length]
+  );
+
+  const updateExpense = useCallback(
+    async (rowIndex: number, name: string, amount: number) => {
+      if (isDemo) {
+        setExpenses((prev) =>
+          prev.map((e) =>
+            e.rowIndex === rowIndex ? { ...e, name, amount } : e
+          )
+        );
+        return;
+      }
+
+      await updateExpenseOnSheet(rowIndex, name, amount);
+      await load();
+    },
     [isDemo, load]
   );
 
-  return { expenses, loading, error, isDemo, reload: load, addExpense };
+  return { expenses, loading, error, isDemo, reload: load, addExpense, updateExpense };
 }

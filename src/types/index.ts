@@ -1,5 +1,6 @@
 export interface Expense {
   id: string;
+  rowIndex: number;
   name: string;
   amount: number;
   paidBy: string;
@@ -27,4 +28,4 @@ export interface ExpenseSplit {
   amount: number;
 }
 
-export type TabId = "expenses" | "split" | "travellers";
+export type TabId = "expenses" | "split" | "payments" | "travellers";

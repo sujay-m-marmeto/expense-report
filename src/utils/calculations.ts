@@ -80,3 +80,41 @@ export function getTotalExpenses(expenses: Expense[]): number {
 export function getExpenseSplitTotal(splits: ExpenseSplit[], expenseName: string): number {
   return getSplitsForExpense(splits, expenseName).reduce((sum, s) => sum + s.amount, 0);
 }
+
+export interface ExpensePersonOwes {
+  name: string;
+  share: number;
+  paid: number;
+  owes: number;
+}
+
+export function getExpenseOwesBreakdown(
+  expense: Expense,
+  travellers: Traveller[],
+  splits: ExpenseSplit[]
+): ExpensePersonOwes[] {
+  const count = travellers.length || 1;
+  const share = getExpenseEqualShare(expense, count);
+  const roundedShare = Math.round(share);
+  const expenseSplits = getSplitsForExpense(splits, expense.name);
+  const hasSplits = expenseSplits.length > 0;
+
+  return travellers.map((traveller) => {
+    let paid = 0;
+
+    if (hasSplits) {
+      paid = findSplitAmount(splits, expense.name, traveller.name) ?? 0;
+    } else if (normalizeKey(traveller.name) === normalizeKey(expense.paidBy)) {
+      paid = expense.amount;
+    }
+
+    const owes = Math.max(0, Math.round(share - paid));
+
+    return {
+      name: traveller.name,
+      share: roundedShare,
+      paid,
+      owes,
+    };
+  });
+}

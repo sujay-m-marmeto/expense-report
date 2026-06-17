@@ -15,6 +15,7 @@ interface ExpenseSplitsSectionProps {
   travellers: Traveller[];
   splits: ExpenseSplit[];
   onSaveSplit: (expenseName: string, personName: string, amount: number) => Promise<void>;
+  hideHeading?: boolean;
 }
 
 interface PersonRowState {
@@ -28,6 +29,7 @@ export function ExpenseSplitsSection({
   travellers,
   splits,
   onSaveSplit,
+  hideHeading = false,
 }: ExpenseSplitsSectionProps) {
   const [expandedId, setExpandedId] = useState<string | null>(
     expenses[0]?.id ?? null
@@ -73,12 +75,16 @@ export function ExpenseSplitsSection({
 
   return (
     <div>
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-lavender-700/80">
-        Record Payments
-      </h2>
-      <p className="mb-3 text-xs text-lavender-600/70 leading-relaxed">
-        Mark what each person paid per expense. Balances update when splits are saved.
-      </p>
+      {!hideHeading && (
+        <>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-lavender-700/80">
+            Record Payments
+          </h2>
+          <p className="mb-3 text-xs text-lavender-600/70 leading-relaxed">
+            Mark what each person paid per expense. Balances update when splits are saved.
+          </p>
+        </>
+      )}
 
       <ul className="flex flex-col gap-3" aria-label="Expense payment splits">
         {expenses.map((expense) => {
