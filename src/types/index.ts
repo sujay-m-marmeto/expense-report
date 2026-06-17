@@ -20,4 +20,11 @@ export interface PersonBalance {
   balance: number;
 }
 
+export interface ExpenseSplit {
+  id: string;
+  expenseName: string;
+  personName: string;
+  amount: number;
+}
+
 export type TabId = "expenses" | "split" | "travellers";

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { TabId } from "./types";
 import { useExpenses } from "./hooks/useExpenses";
 import { useTravellers } from "./hooks/useTravellers";
+import { useSplits } from "./hooks/useSplits";
 import { calculateBalances, getTotalExpenses } from "./utils/calculations";
 import { Header } from "./components/Header";
 import { TabNav } from "./components/TabNav";
@@ -20,15 +21,16 @@ function App() {
 
   const { expenses, loading: expensesLoading, error: expensesError, isDemo: expensesDemo, addExpense } = useExpenses();
   const { travellers, loading: travellersLoading, error: travellersError, isDemo: travellersDemo } = useTravellers();
+  const { splits, loading: splitsLoading, error: splitsError, saveSplit } = useSplits();
 
   const isDemo = expensesDemo || travellersDemo;
-  const loading = expensesLoading || travellersLoading;
+  const loading = expensesLoading || travellersLoading || splitsLoading;
   const travellerNames = travellers.map((t) => t.name);
 
   const total = getTotalExpenses(expenses);
   const balances = useMemo(
-    () => calculateBalances(expenses, travellers),
-    [expenses, travellers]
+    () => calculateBalances(expenses, travellers, splits),
+    [expenses, travellers, splits]
   );
   const perPerson = travellers.length > 0 ? total / travellers.length : 0;
 
@@ -45,9 +47,9 @@ function App() {
           <LoadingSpinner />
         ) : (
           <>
-            {(expensesError || travellersError) && (
+            {(expensesError || travellersError || splitsError) && (
               <div className="mb-4 rounded-xl bg-rose-100/80 p-3 text-sm text-rose-700" role="alert">
-                {expensesError || travellersError}
+                {expensesError || travellersError || splitsError}
               </div>
             )}
 
@@ -82,6 +84,10 @@ function App() {
                   total={total}
                   perPerson={perPerson}
                   travellerCount={travellers.length}
+                  expenses={expenses}
+                  travellers={travellers}
+                  splits={splits}
+                  onSaveSplit={saveSplit}
                 />
               </section>
             )}

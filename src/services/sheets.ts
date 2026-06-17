@@ -1,5 +1,5 @@
 import { SHEETS_CONFIG } from "../config";
-import type { Expense, Traveller } from "../types";
+import type { Expense, Traveller, ExpenseSplit } from "../types";
 
 const DEMO_TRAVELLERS: Traveller[] = [
   { id: "1", name: "Sujay", phone: "+91 98765 43210" },
@@ -64,7 +64,25 @@ function parseTravellerRow(row: SheetRow, index: number): Traveller | null {
   };
 }
 
-async function fetchViaScript(action: "expenses" | "travellers"): Promise<SheetRow[]> {
+function parseSplitRow(row: SheetRow, index: number): ExpenseSplit | null {
+  const expenseName = cellString(row[0]);
+  const personName = cellString(row[1]);
+  if (!expenseName || !personName) return null;
+
+  const amount = parseAmount(row[2]);
+  if (isNaN(amount) || amount < 0) return null;
+
+  return {
+    id: `split-${index}`,
+    expenseName,
+    personName,
+    amount,
+  };
+}
+
+type SheetAction = "expenses" | "travellers" | "splits";
+
+async function fetchViaScript(action: SheetAction): Promise<SheetRow[]> {
   const url = `${SHEETS_CONFIG.scriptUrl}?action=${action}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to fetch ${action}`);
@@ -118,6 +136,50 @@ export async function fetchTravellers(): Promise<Traveller[]> {
   }
 
   return DEMO_TRAVELLERS;
+}
+
+export async function fetchSplits(): Promise<ExpenseSplit[]> {
+  if (SHEETS_CONFIG.scriptUrl) {
+    const rows = await fetchViaScript("splits");
+    return rows
+      .slice(1)
+      .map((row, i) => parseSplitRow(row, i))
+      .filter((s): s is ExpenseSplit => s !== null);
+  }
+
+  if (SHEETS_CONFIG.apiKey && SHEETS_CONFIG.sheetId) {
+    const rows = await fetchViaApi("Splits!A:C");
+    return rows
+      .slice(1)
+      .map((row, i) => parseSplitRow(row, i))
+      .filter((s): s is ExpenseSplit => s !== null);
+  }
+
+  return [];
+}
+
+export async function saveSplit(
+  expenseName: string,
+  personName: string,
+  amount: number
+): Promise<void> {
+  if (!SHEETS_CONFIG.scriptUrl) {
+    throw new Error("Google Script URL not configured.");
+  }
+
+  const response = await fetch(SHEETS_CONFIG.scriptUrl, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "saveSplit",
+      expenseName,
+      personName,
+      amount,
+    }),
+  });
+
+  void response;
 }
 
 export async function addExpense(

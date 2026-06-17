@@ -1,15 +1,29 @@
-import type { PersonBalance } from "../types";
+import type { Expense, Traveller, PersonBalance, ExpenseSplit } from "../types";
 import { formatCurrency } from "../utils/calculations";
 import { Card } from "./Card";
+import { ExpenseSplitsSection } from "./ExpenseSplitsSection";
 
 interface SplitViewProps {
   balances: PersonBalance[];
   total: number;
   perPerson: number;
   travellerCount: number;
+  expenses: Expense[];
+  travellers: Traveller[];
+  splits: ExpenseSplit[];
+  onSaveSplit: (expenseName: string, personName: string, amount: number) => Promise<void>;
 }
 
-export function SplitView({ balances, total, perPerson, travellerCount }: SplitViewProps) {
+export function SplitView({
+  balances,
+  total,
+  perPerson,
+  travellerCount,
+  expenses,
+  travellers,
+  splits,
+  onSaveSplit,
+}: SplitViewProps) {
   return (
     <div className="flex flex-col gap-4">
       <Card className="p-5">
@@ -79,10 +93,18 @@ export function SplitView({ balances, total, perPerson, travellerCount }: SplitV
         </ul>
       </div>
 
+      <ExpenseSplitsSection
+        expenses={expenses}
+        travellers={travellers}
+        splits={splits}
+        onSaveSplit={onSaveSplit}
+      />
+
       <Card className="p-4">
         <p className="text-sm text-lavender-700/80 leading-relaxed">
           <span className="font-semibold text-emerald-700">Green</span> means they paid more than their share and should get money back.
           <span className="font-semibold text-rose-700"> Red</span> means they owe the group.
+          Record per-expense payments below to update balances.
         </p>
       </Card>
     </div>
