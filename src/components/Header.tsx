@@ -1,6 +1,12 @@
 import { AddToHomeButton } from "./AddToHomeButton";
+import { Button } from "./Button";
 
-export function Header() {
+interface HeaderProps {
+  currentUser?: string;
+  onSwitchUser?: () => void;
+}
+
+export function Header({ currentUser, onSwitchUser }: HeaderProps) {
   return (
     <header className="px-4 pt-6 pb-4 safe-area-top">
       <div className="flex items-center justify-between gap-3">
@@ -15,12 +21,25 @@ export function Header() {
             <h1 className="text-xl font-bold tracking-tight text-lavender-900 truncate">
               Goa Expenses
             </h1>
-            <p className="text-sm text-lavender-700/70">
-              Split & track the boys&apos; trip
-            </p>
+            {currentUser ? (
+              <p className="text-sm text-lavender-700/70">
+                Hi, <span className="font-semibold text-lavender-800">{currentUser}</span>
+              </p>
+            ) : (
+              <p className="text-sm text-lavender-700/70">
+                Split & track the boys&apos; trip
+              </p>
+            )}
           </div>
         </div>
-        <AddToHomeButton />
+        <div className="flex shrink-0 items-center gap-2">
+          {currentUser && onSwitchUser && (
+            <Button variant="ghost" size="sm" onClick={onSwitchUser} className="!px-2 !py-1.5 text-xs">
+              Switch
+            </Button>
+          )}
+          <AddToHomeButton />
+        </div>
       </div>
     </header>
   );

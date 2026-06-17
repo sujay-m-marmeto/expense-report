@@ -7,6 +7,7 @@ interface SplitViewProps {
   total: number;
   perPerson: number;
   travellerCount: number;
+  highlightUser?: string;
 }
 
 export function SplitView({
@@ -14,7 +15,9 @@ export function SplitView({
   total,
   perPerson,
   travellerCount,
+  highlightUser,
 }: SplitViewProps) {
+  const highlightKey = highlightUser?.trim().toLowerCase();
   return (
     <div className="flex flex-col gap-4">
       <Card className="p-5">
@@ -49,16 +52,23 @@ export function SplitView({
           Balance Breakdown
         </h2>
         <ul className="flex flex-col gap-3" aria-label="Balance breakdown">
-          {balances.map((person, index) => (
+          {balances.map((person, index) => {
+            const isYou = highlightKey && person.name.trim().toLowerCase() === highlightKey;
+            return (
             <li
               key={person.name}
               className="animate-fade-in"
               style={{ animationDelay: `${index * 50}ms` }}
             >
-              <Card className="p-4">
+              <Card className={`p-4 ${isYou ? "ring-2 ring-lavender-400 bg-lavender-50/50" : ""}`}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="font-semibold text-lavender-900">{person.name}</h3>
+                    <h3 className="font-semibold text-lavender-900">
+                      {person.name}
+                      {isYou && (
+                        <span className="ml-1.5 text-xs font-semibold text-lavender-600">(You)</span>
+                      )}
+                    </h3>
                     <p className="mt-0.5 text-xs text-lavender-600/70">
                       Paid {formatCurrency(person.paid)} · Share {formatCurrency(person.share)}
                     </p>
@@ -80,7 +90,8 @@ export function SplitView({
                 </div>
               </Card>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </div>
 

@@ -4,6 +4,8 @@ export const SHEETS_CONFIG = {
   sheetId: import.meta.env.VITE_GOOGLE_SHEET_ID as string | undefined,
 };
 
+export const USER_STORAGE_KEY = "goa-selected-person";
+
 export function isSheetsConfigured(): boolean {
   return Boolean(SHEETS_CONFIG.scriptUrl) || Boolean(
     SHEETS_CONFIG.apiKey && SHEETS_CONFIG.sheetId

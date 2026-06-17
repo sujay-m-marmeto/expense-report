@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Traveller } from "../types";
 import { Button } from "./Button";
 
@@ -15,6 +15,10 @@ export function DuesNameModal({
 }: DuesNameModalProps) {
   const [selected, setSelected] = useState(initialName ?? travellers[0]?.name ?? "");
 
+  useEffect(() => {
+    if (initialName) setSelected(initialName);
+  }, [initialName]);
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
@@ -29,7 +33,7 @@ export function DuesNameModal({
             Who are you?
           </h2>
           <p className="mt-1 text-sm text-lavender-600/70">
-            Select your name to see who you need to pay
+            Select your name to see your expenses & dues
           </p>
         </div>
 
@@ -68,7 +72,7 @@ export function DuesNameModal({
         </ul>
 
         <Button fullWidth onClick={() => onConfirm(selected)} disabled={!selected}>
-          View my dues
+          Continue
         </Button>
       </div>
     </div>
