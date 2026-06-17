@@ -12,6 +12,11 @@ function normalizeKey(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function paidToFromKey(payeeKey: string, expenses: Expense[]): string {
+  const expense = expenses.find((e) => normalizeKey(e.paidBy) === payeeKey);
+  return expense?.paidBy ?? payeeKey;
+}
+
 export function getExpenseEqualShare(expense: Expense, travellerCount: number): number {
   if (travellerCount <= 0) return expense.amount;
   return expense.amount / travellerCount;
@@ -131,18 +136,36 @@ export function calculatePersonDues(
   if (!personBalance) return null;
 
   const expenseOwes: ExpenseOwed[] = [];
+  const payeeAmounts = new Map<string, number>();
 
   for (const expense of expenses) {
     const breakdown = getExpenseOwesBreakdown(expense, travellers, splits);
     const person = breakdown.find((p) => normalizeKey(p.name) === personKey);
-    if (person && person.owes > 0) {
-      expenseOwes.push({ expenseName: expense.name, owes: person.owes });
+    if (!person || person.owes <= 0) continue;
+
+    const paidTo = expense.paidBy.trim();
+    expenseOwes.push({ expenseName: expense.name, owes: person.owes, paidTo });
+
+    if (normalizeKey(paidTo) !== personKey) {
+      const payeeKey = normalizeKey(paidTo);
+      payeeAmounts.set(payeeKey, (payeeAmounts.get(payeeKey) ?? 0) + person.owes);
     }
   }
 
-  const payees: PayeeSettlement[] = [];
+  const payees: PayeeSettlement[] = Array.from(payeeAmounts.entries())
+    .map(([payeeKey, amount]) => {
+      const traveller = travellers.find((t) => normalizeKey(t.name) === payeeKey);
+      const balanceEntry = balances.find((b) => normalizeKey(b.name) === payeeKey);
+      return {
+        name: traveller?.name ?? balanceEntry?.name ?? paidToFromKey(payeeKey, expenses),
+        phone: traveller?.phone ?? balanceEntry?.phone ?? "",
+        amount,
+      };
+    })
+    .filter((p) => p.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
 
-  if (personBalance.balance < 0) {
+  if (payees.length === 0 && personBalance.balance < 0) {
     let remaining = Math.round(-personBalance.balance);
     const creditors = balances
       .filter((b) => b.balance > 0 && normalizeKey(b.name) !== personKey)

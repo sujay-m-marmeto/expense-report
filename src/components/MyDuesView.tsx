@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Expense, Traveller, PersonBalance, ExpenseSplit } from "../types";
 import { calculatePersonDues, formatCurrency } from "../utils/calculations";
 import { Card } from "./Card";
-import { Select } from "./Select";
 import { CopyPhoneButton } from "./CopyPhoneButton";
+import { DuesNameModal } from "./DuesNameModal";
+import { Button } from "./Button";
 
 const STORAGE_KEY = "goa-selected-person";
 
@@ -20,21 +21,18 @@ export function MyDuesView({
   splits,
   balances,
 }: MyDuesViewProps) {
-  const names = travellers.map((t) => t.name);
-  const [selectedName, setSelectedName] = useState("");
-
-  useEffect(() => {
+  const [showNameModal, setShowNameModal] = useState(true);
+  const [selectedName, setSelectedName] = useState(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && names.includes(stored)) {
-      setSelectedName(stored);
-    } else if (names.length > 0) {
-      setSelectedName(names[0]);
-    }
-  }, [names]);
+    const names = travellers.map((t) => t.name);
+    if (stored && names.includes(stored)) return stored;
+    return "";
+  });
 
-  const handleNameChange = (name: string) => {
+  const handleConfirmName = (name: string) => {
     setSelectedName(name);
     localStorage.setItem(STORAGE_KEY, name);
+    setShowNameModal(false);
   };
 
   const dues = useMemo(() => {
@@ -50,23 +48,31 @@ export function MyDuesView({
     );
   }
 
+  if (showNameModal) {
+    return (
+      <DuesNameModal
+        travellers={travellers}
+        initialName={selectedName || undefined}
+        onConfirm={handleConfirmName}
+      />
+    );
+  }
+
   return (
     <section aria-label="My dues" className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-lavender-700/80">
-          My Dues
-        </h2>
-        <p className="mt-1 text-sm text-lavender-600/70">
-          See who you need to pay and how much
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-lavender-700/80">
+            My Dues
+          </h2>
+          <p className="mt-1 text-sm text-lavender-600/70">
+            Hi <span className="font-semibold text-lavender-800">{selectedName}</span>
+          </p>
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => setShowNameModal(true)}>
+          Change
+        </Button>
       </div>
-
-      <Select
-        label="Your name"
-        options={names}
-        value={selectedName}
-        onChange={(e) => handleNameChange(e.target.value)}
-      />
 
       {dues && (
         <>
@@ -143,13 +149,20 @@ export function MyDuesView({
               <ul className="flex flex-col gap-2" aria-label="Expense breakdown">
                 {dues.expenseOwes.map((item) => (
                   <li key={item.expenseName}>
-                    <Card className="flex items-center justify-between gap-3 px-4 py-3">
-                      <span className="min-w-0 truncate text-sm font-medium text-lavender-900">
-                        {item.expenseName}
-                      </span>
-                      <span className="shrink-0 text-sm font-bold text-rose-600">
-                        {formatCurrency(item.owes)}
-                      </span>
+                    <Card className="px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-lavender-900">
+                            {item.expenseName}
+                          </p>
+                          <p className="text-xs text-lavender-500/80">
+                            Pay {item.paidTo}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-bold text-rose-600">
+                          {formatCurrency(item.owes)}
+                        </span>
+                      </div>
                     </Card>
                   </li>
                 ))}

@@ -37,6 +37,7 @@ export interface PayeeSettlement {
 export interface ExpenseOwed {
   expenseName: string;
   owes: number;
+  paidTo: string;
 }
 
 export interface PersonDues {
