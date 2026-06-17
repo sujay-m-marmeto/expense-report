@@ -18,29 +18,53 @@ const DEMO_EXPENSES: Expense[] = [
   { id: "5", name: "Water Sports", amount: 6000, paidBy: "Arjun", date: "2026-06-17" },
 ];
 
-function parseExpenseRow(row: string[], index: number): Expense | null {
-  if (!row[0]?.trim()) return null;
-  const amount = parseFloat(String(row[1]).replace(/[^\d.]/g, ""));
-  if (isNaN(amount)) return null;
+type SheetRow = unknown[];
+
+function cellString(value: unknown): string {
+  if (value == null || value === "") return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") return String(value).trim();
+  if (value instanceof Date) return value.toISOString().split("T")[0];
+  return String(value).trim();
+}
+
+function parseAmount(value: unknown): number {
+  if (typeof value === "number" && !isNaN(value)) return value;
+  const parsed = parseFloat(cellString(value).replace(/[^\d.]/g, ""));
+  return parsed;
+}
+
+function parseExpenseRow(row: SheetRow, index: number): Expense | null {
+  const name = cellString(row[0]);
+  if (!name) return null;
+
+  const amount = parseAmount(row[1]);
+  if (isNaN(amount) || amount <= 0) return null;
+
+  const paidBy = cellString(row[2]) || "Unknown";
+  const date = cellString(row[3]) || undefined;
+
   return {
     id: `exp-${index}`,
-    name: row[0].trim(),
+    name,
     amount,
-    paidBy: row[2]?.trim() || "Unknown",
-    date: row[3]?.trim() || undefined,
+    paidBy,
+    date,
   };
 }
 
-function parseTravellerRow(row: string[], index: number): Traveller | null {
-  if (!row[0]?.trim()) return null;
+function parseTravellerRow(row: SheetRow, index: number): Traveller | null {
+  const name = cellString(row[0]);
+  if (!name) return null;
+
   return {
     id: `trav-${index}`,
-    name: row[0].trim(),
-    phone: row[1]?.trim() || "",
+    name,
+    phone: cellString(row[1]),
   };
 }
 
-async function fetchViaScript(action: "expenses" | "travellers"): Promise<string[][]> {
+async function fetchViaScript(action: "expenses" | "travellers"): Promise<SheetRow[]> {
   const url = `${SHEETS_CONFIG.scriptUrl}?action=${action}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to fetch ${action}`);
@@ -48,7 +72,7 @@ async function fetchViaScript(action: "expenses" | "travellers"): Promise<string
   return data.rows ?? [];
 }
 
-async function fetchViaApi(range: string): Promise<string[][]> {
+async function fetchViaApi(range: string): Promise<SheetRow[]> {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_CONFIG.sheetId}/values/${range}?key=${SHEETS_CONFIG.apiKey}`;
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Sheets API error: ${response.statusText}`);
