@@ -1,4 +1,4 @@
-import type { Expense, Traveller, PersonBalance, ExpenseSplit, PersonDues, PayeeSettlement, ExpenseOwed } from "../types";
+import type { Expense, Traveller, PersonBalance, ExpenseSplit, PersonDues, PayeeSettlement, ExpenseOwed, ExpenseCollection } from "../types";
 
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -15,6 +15,44 @@ function normalizeKey(value: string): string {
 function paidToFromKey(payeeKey: string, expenses: Expense[]): string {
   const expense = expenses.find((e) => normalizeKey(e.paidBy) === payeeKey);
   return expense?.paidBy ?? payeeKey;
+}
+
+function nameFromKey(
+  key: string,
+  travellers: Traveller[],
+  balances: PersonBalance[]
+): string {
+  const traveller = travellers.find((t) => normalizeKey(t.name) === key);
+  if (traveller) return traveller.name;
+  const balanceEntry = balances.find((b) => normalizeKey(b.name) === key);
+  return balanceEntry?.name ?? key;
+}
+
+function phoneFromKey(
+  key: string,
+  travellers: Traveller[],
+  balances: PersonBalance[]
+): string {
+  const traveller = travellers.find((t) => normalizeKey(t.name) === key);
+  if (traveller?.phone) return traveller.phone;
+  const balanceEntry = balances.find((b) => normalizeKey(b.name) === key);
+  return balanceEntry?.phone ?? "";
+}
+
+function settlementsFromMap(
+  amountMap: Map<string, number>,
+  travellers: Traveller[],
+  balances: PersonBalance[],
+  expenses: Expense[]
+): PayeeSettlement[] {
+  return Array.from(amountMap.entries())
+    .map(([key, amount]) => ({
+      name: nameFromKey(key, travellers, balances) || paidToFromKey(key, expenses),
+      phone: phoneFromKey(key, travellers, balances),
+      amount,
+    }))
+    .filter((p) => p.amount > 0)
+    .sort((a, b) => b.amount - a.amount);
 }
 
 export function getExpenseEqualShare(expense: Expense, travellerCount: number): number {
@@ -152,18 +190,39 @@ export function calculatePersonDues(
     }
   }
 
-  const payees: PayeeSettlement[] = Array.from(payeeAmounts.entries())
-    .map(([payeeKey, amount]) => {
-      const traveller = travellers.find((t) => normalizeKey(t.name) === payeeKey);
-      const balanceEntry = balances.find((b) => normalizeKey(b.name) === payeeKey);
-      return {
-        name: traveller?.name ?? balanceEntry?.name ?? paidToFromKey(payeeKey, expenses),
-        phone: traveller?.phone ?? balanceEntry?.phone ?? "",
-        amount,
-      };
-    })
-    .filter((p) => p.amount > 0)
-    .sort((a, b) => b.amount - a.amount);
+  const payees: PayeeSettlement[] = settlementsFromMap(
+    payeeAmounts,
+    travellers,
+    balances,
+    expenses
+  );
+
+  const debtorAmounts = new Map<string, number>();
+  const expenseCollections: ExpenseCollection[] = [];
+
+  for (const expense of expenses) {
+    if (normalizeKey(expense.paidBy) !== personKey) continue;
+
+    const breakdown = getExpenseOwesBreakdown(expense, travellers, splits);
+    for (const entry of breakdown) {
+      if (normalizeKey(entry.name) === personKey || entry.owes <= 0) continue;
+
+      const debtorKey = normalizeKey(entry.name);
+      debtorAmounts.set(debtorKey, (debtorAmounts.get(debtorKey) ?? 0) + entry.owes);
+      expenseCollections.push({
+        expenseName: expense.name,
+        debtorName: entry.name,
+        amount: entry.owes,
+      });
+    }
+  }
+
+  const owedBy: PayeeSettlement[] = settlementsFromMap(
+    debtorAmounts,
+    travellers,
+    balances,
+    expenses
+  );
 
   if (payees.length === 0 && personBalance.balance < 0) {
     let remaining = Math.round(-personBalance.balance);
@@ -184,12 +243,32 @@ export function calculatePersonDues(
     }
   }
 
+  if (owedBy.length === 0 && personBalance.balance > 0) {
+    let remaining = Math.round(personBalance.balance);
+    const debtors = balances
+      .filter((b) => b.balance < 0 && normalizeKey(b.name) !== personKey)
+      .sort((a, b) => a.balance - b.balance);
+
+    for (const debtor of debtors) {
+      if (remaining <= 0) break;
+      const collectAmount = Math.min(Math.round(-debtor.balance), remaining);
+      owedBy.push({
+        name: debtor.name,
+        phone: phoneFromKey(normalizeKey(debtor.name), travellers, balances),
+        amount: collectAmount,
+      });
+      remaining -= collectAmount;
+    }
+  }
+
   return {
     name: personName,
     totalOwes: personBalance.balance < 0 ? Math.round(-personBalance.balance) : 0,
     totalGetsBack: personBalance.balance > 0 ? Math.round(personBalance.balance) : 0,
     balance: personBalance.balance,
     payees,
+    owedBy,
     expenseOwes,
+    expenseCollections,
   };
 }

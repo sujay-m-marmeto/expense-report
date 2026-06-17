@@ -40,13 +40,21 @@ export interface ExpenseOwed {
   paidTo: string;
 }
 
+export interface ExpenseCollection {
+  expenseName: string;
+  debtorName: string;
+  amount: number;
+}
+
 export interface PersonDues {
   name: string;
   totalOwes: number;
   totalGetsBack: number;
   balance: number;
   payees: PayeeSettlement[];
+  owedBy: PayeeSettlement[];
   expenseOwes: ExpenseOwed[];
+  expenseCollections: ExpenseCollection[];
 }
 
 export type TabId = "expenses" | "split" | "payments" | "dues" | "travellers";
