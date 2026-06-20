@@ -39,6 +39,38 @@ function doGet(e) {
     return jsonResponse({ rows: rows });
   }
 
+  if (action === "updateExpense") {
+    const sheet = ss.getSheetByName(EXPENSES_SHEET);
+    if (!sheet) {
+      return jsonResponse({ error: "Expenses sheet not found" });
+    }
+
+    const sheetRow = Number(e.parameter.sheetRow);
+    if (!sheetRow || sheetRow < 2) {
+      return jsonResponse({ error: "Invalid sheet row" });
+    }
+
+    const newName = String(e.parameter.name).trim();
+    const oldName = String(e.parameter.oldName || "").trim();
+
+    sheet.getRange(sheetRow, 1).setValue(newName);
+    sheet.getRange(sheetRow, 2).setValue(Number(e.parameter.amount));
+
+    if (oldName && oldName.toLowerCase() !== newName.toLowerCase()) {
+      const splitsSheet = ss.getSheetByName(SPLITS_SHEET);
+      if (splitsSheet) {
+        const splitRows = splitsSheet.getDataRange().getValues();
+        for (let i = 1; i < splitRows.length; i++) {
+          if (String(splitRows[i][0]).trim().toLowerCase() === oldName.toLowerCase()) {
+            splitsSheet.getRange(i + 1, 1).setValue(newName);
+          }
+        }
+      }
+    }
+
+    return jsonResponse({ success: true });
+  }
+
   return jsonResponse({ error: "Invalid action" });
 }
 
@@ -70,11 +102,24 @@ function doPost(e) {
       return jsonResponse({ error: "Expenses sheet not found" });
     }
 
-    const rowIndex = Number(data.rowIndex);
-    const sheetRow = rowIndex + 2;
+    const sheetRow = Number(data.sheetRow || data.rowIndex + 2);
+    const newName = String(data.name).trim();
+    const oldName = String(data.oldName || "").trim();
 
-    sheet.getRange(sheetRow, 1).setValue(String(data.name).trim());
+    sheet.getRange(sheetRow, 1).setValue(newName);
     sheet.getRange(sheetRow, 2).setValue(Number(data.amount));
+
+    if (oldName && oldName.toLowerCase() !== newName.toLowerCase()) {
+      const splitsSheet = ss.getSheetByName(SPLITS_SHEET);
+      if (splitsSheet) {
+        const splitRows = splitsSheet.getDataRange().getValues();
+        for (let i = 1; i < splitRows.length; i++) {
+          if (String(splitRows[i][0]).trim().toLowerCase() === oldName.toLowerCase()) {
+            splitsSheet.getRange(i + 1, 1).setValue(newName);
+          }
+        }
+      }
+    }
 
     return jsonResponse({ success: true });
   }

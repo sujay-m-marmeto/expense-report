@@ -11,11 +11,11 @@ const DEMO_TRAVELLERS: Traveller[] = [
 ];
 
 const DEMO_EXPENSES: Expense[] = [
-  { id: "exp-0", rowIndex: 0, name: "Hotel Stay", amount: 12000, paidBy: "Sujay", date: "2026-06-15" },
-  { id: "exp-1", rowIndex: 1, name: "Dinner at Fisherman's Wharf", amount: 4500, paidBy: "Rahul", date: "2026-06-15" },
-  { id: "exp-2", rowIndex: 2, name: "Scooter Rental", amount: 2400, paidBy: "Amit", date: "2026-06-16" },
-  { id: "exp-3", rowIndex: 3, name: "Beach Shack Lunch", amount: 3200, paidBy: "Vikram", date: "2026-06-16" },
-  { id: "exp-4", rowIndex: 4, name: "Water Sports", amount: 6000, paidBy: "Arjun", date: "2026-06-17" },
+  { id: "exp-0", rowIndex: 0, sheetRow: 2, name: "Hotel Stay", amount: 12000, paidBy: "Sujay", date: "2026-06-15" },
+  { id: "exp-1", rowIndex: 1, sheetRow: 3, name: "Dinner at Fisherman's Wharf", amount: 4500, paidBy: "Rahul", date: "2026-06-15" },
+  { id: "exp-2", rowIndex: 2, sheetRow: 4, name: "Scooter Rental", amount: 2400, paidBy: "Amit", date: "2026-06-16" },
+  { id: "exp-3", rowIndex: 3, sheetRow: 5, name: "Beach Shack Lunch", amount: 3200, paidBy: "Vikram", date: "2026-06-16" },
+  { id: "exp-4", rowIndex: 4, sheetRow: 6, name: "Water Sports", amount: 6000, paidBy: "Arjun", date: "2026-06-17" },
 ];
 
 type SheetRow = unknown[];
@@ -47,6 +47,7 @@ function parseExpenseRow(row: SheetRow, index: number): Expense | null {
   return {
     id: `exp-${index}`,
     rowIndex: index,
+    sheetRow: index + 2,
     name,
     amount,
     paidBy,
@@ -209,25 +210,33 @@ export async function addExpense(
 }
 
 export async function updateExpense(
-  rowIndex: number,
+  sheetRow: number,
   name: string,
-  amount: number
+  amount: number,
+  oldName?: string
 ): Promise<void> {
   if (!SHEETS_CONFIG.scriptUrl) {
     throw new Error("Google Script URL not configured.");
   }
 
-  const response = await fetch(SHEETS_CONFIG.scriptUrl, {
-    method: "POST",
-    mode: "no-cors",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "updateExpense",
-      rowIndex,
-      name,
-      amount,
-    }),
+  const params = new URLSearchParams({
+    action: "updateExpense",
+    sheetRow: String(sheetRow),
+    name,
+    amount: String(amount),
   });
+  if (oldName) {
+    params.set("oldName", oldName);
+  }
 
-  void response;
+  const url = `${SHEETS_CONFIG.scriptUrl}?${params}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to update expense (${response.status})`);
+  }
+
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error);
+  }
 }

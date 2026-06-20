@@ -29,10 +29,11 @@ export function useExpenses() {
 
   const addExpense = useCallback(
     async (name: string, amount: number, paidBy: string) => {
-      if (isDemo) {
+      if (!isSheetsConfigured()) {
         const newExpense: Expense = {
           id: `local-${Date.now()}`,
           rowIndex: expenses.length,
+          sheetRow: expenses.length + 2,
           name,
           amount,
           paidBy,
@@ -45,24 +46,28 @@ export function useExpenses() {
       await addExpenseToSheet(name, amount, paidBy);
       await load();
     },
-    [isDemo, load, expenses.length]
+    [load, expenses.length]
   );
 
   const updateExpense = useCallback(
-    async (rowIndex: number, name: string, amount: number) => {
-      if (isDemo) {
-        setExpenses((prev) =>
-          prev.map((e) =>
-            e.rowIndex === rowIndex ? { ...e, name, amount } : e
-          )
-        );
+    async (expense: Expense, name: string, amount: number) => {
+      setExpenses((prev) =>
+        prev.map((e) => (e.id === expense.id ? { ...e, name, amount } : e))
+      );
+
+      if (!isSheetsConfigured()) {
         return;
       }
 
-      await updateExpenseOnSheet(rowIndex, name, amount);
-      await load();
+      try {
+        await updateExpenseOnSheet(expense.sheetRow, name, amount, expense.name);
+        await load();
+      } catch (err) {
+        await load();
+        throw err;
+      }
     },
-    [isDemo, load]
+    [load]
   );
 
   return { expenses, loading, error, isDemo, reload: load, addExpense, updateExpense };

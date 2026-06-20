@@ -1,6 +1,7 @@
 export interface Expense {
   id: string;
   rowIndex: number;
+  sheetRow: number;
   name: string;
   amount: number;
   paidBy: string;

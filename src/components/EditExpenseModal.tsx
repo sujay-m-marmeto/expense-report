@@ -6,7 +6,7 @@ import { Input } from "./Input";
 interface EditExpenseModalProps {
   expense: Expense;
   onClose: () => void;
-  onSubmit: (rowIndex: number, name: string, amount: number) => Promise<void>;
+  onSubmit: (expense: Expense, name: string, amount: number) => Promise<void>;
 }
 
 export function EditExpenseModal({
@@ -35,7 +35,7 @@ export function EditExpenseModal({
 
     setSubmitting(true);
     try {
-      await onSubmit(expense.rowIndex, name.trim(), parsedAmount);
+      await onSubmit(expense, name.trim(), parsedAmount);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update expense");
