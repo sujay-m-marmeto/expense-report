@@ -14,6 +14,7 @@ export function EditExpenseModal({
   onClose,
   onSubmit,
 }: EditExpenseModalProps) {
+  const hasSubExpenses = expense.hasSubExpenses ?? false;
   const [name, setName] = useState(expense.name);
   const [amount, setAmount] = useState(String(expense.amount));
   const [submitting, setSubmitting] = useState(false);
@@ -23,12 +24,12 @@ export function EditExpenseModal({
     e.preventDefault();
     setError(null);
 
-    const parsedAmount = parseFloat(amount);
+    const parsedAmount = hasSubExpenses ? expense.amount : parseFloat(amount);
     if (!name.trim()) {
       setError("Please enter an expense name");
       return;
     }
-    if (!parsedAmount || parsedAmount <= 0) {
+    if (!hasSubExpenses && (!parsedAmount || parsedAmount <= 0)) {
       setError("Please enter a valid amount");
       return;
     }
@@ -89,7 +90,14 @@ export function EditExpenseModal({
             step="0.01"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
+            disabled={hasSubExpenses}
           />
+
+          {hasSubExpenses && (
+            <p className="text-xs text-lavender-600/70">
+              Amount is calculated from breakdown items. Edit or remove items on the expense card.
+            </p>
+          )}
 
           <p className="text-xs text-lavender-600/70">
             Paid by <span className="font-medium text-lavender-700">{expense.paidBy}</span>

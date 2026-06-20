@@ -1,4 +1,4 @@
-import type { Expense, Traveller, PersonBalance, ExpenseSplit, PersonDues, PayeeSettlement, ExpenseOwed, ExpenseCollection } from "../types";
+import type { Expense, Traveller, PersonBalance, ExpenseSplit, PersonDues, PayeeSettlement, ExpenseOwed, ExpenseCollection, SubExpense } from "../types";
 
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -127,6 +127,34 @@ export function getExpensesPaidBy(personName: string, expenses: Expense[]): Expe
 
 export function getTotalPaidBy(personName: string, expenses: Expense[]): number {
   return getExpensesPaidBy(personName, expenses).reduce((sum, e) => sum + e.amount, 0);
+}
+
+export function mergeSubExpensesIntoExpenses(
+  expenses: Expense[],
+  subExpenses: SubExpense[]
+): Expense[] {
+  const grouped = new Map<string, SubExpense[]>();
+
+  for (const sub of subExpenses) {
+    const key = sub.parentExpenseName.trim().toLowerCase();
+    const list = grouped.get(key) ?? [];
+    list.push(sub);
+    grouped.set(key, list);
+  }
+
+  return expenses.map((expense) => {
+    const key = expense.name.trim().toLowerCase();
+    const subs = grouped.get(key);
+    if (!subs || subs.length === 0) return expense;
+
+    const amount = subs.reduce((sum, sub) => sum + sub.amount, 0);
+    return {
+      ...expense,
+      amount,
+      subExpenses: subs,
+      hasSubExpenses: true,
+    };
+  });
 }
 
 export function getExpenseSplitTotal(splits: ExpenseSplit[], expenseName: string): number {

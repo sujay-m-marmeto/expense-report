@@ -6,6 +6,16 @@ export interface Expense {
   amount: number;
   paidBy: string;
   date?: string;
+  subExpenses?: SubExpense[];
+  hasSubExpenses?: boolean;
+}
+
+export interface SubExpense {
+  id: string;
+  sheetRow: number;
+  parentExpenseName: string;
+  name: string;
+  amount: number;
 }
 
 export interface Traveller {

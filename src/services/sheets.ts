@@ -1,5 +1,5 @@
 import { SHEETS_CONFIG } from "../config";
-import type { Expense, Traveller, ExpenseSplit } from "../types";
+import type { Expense, Traveller, ExpenseSplit, SubExpense } from "../types";
 
 const DEMO_TRAVELLERS: Traveller[] = [
   { id: "1", name: "Sujay", phone: "+91 98765 43210" },
@@ -82,7 +82,24 @@ function parseSplitRow(row: SheetRow, index: number): ExpenseSplit | null {
   };
 }
 
-type SheetAction = "expenses" | "travellers" | "splits";
+function parseSubExpenseRow(row: SheetRow, index: number): SubExpense | null {
+  const parentExpenseName = cellString(row[0]);
+  const name = cellString(row[1]);
+  if (!parentExpenseName || !name) return null;
+
+  const amount = parseAmount(row[2]);
+  if (isNaN(amount) || amount <= 0) return null;
+
+  return {
+    id: `sub-${index}`,
+    sheetRow: index + 2,
+    parentExpenseName,
+    name,
+    amount,
+  };
+}
+
+type SheetAction = "expenses" | "travellers" | "splits" | "subExpenses";
 
 async function fetchViaScript(action: SheetAction): Promise<SheetRow[]> {
   const url = `${SHEETS_CONFIG.scriptUrl}?action=${action}`;
@@ -98,6 +115,20 @@ async function fetchViaApi(range: string): Promise<SheetRow[]> {
   if (!response.ok) throw new Error(`Sheets API error: ${response.statusText}`);
   const data = await response.json();
   return data.values ?? [];
+}
+
+async function getViaScript(params: Record<string, string>): Promise<Record<string, unknown>> {
+  const search = new URLSearchParams(params);
+  const url = `${SHEETS_CONFIG.scriptUrl}?${search}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status})`);
+  }
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error);
+  }
+  return data;
 }
 
 export async function fetchExpenses(): Promise<Expense[]> {
@@ -155,6 +186,18 @@ export async function fetchSplits(): Promise<ExpenseSplit[]> {
       .slice(1)
       .map((row, i) => parseSplitRow(row, i))
       .filter((s): s is ExpenseSplit => s !== null);
+  }
+
+  return [];
+}
+
+export async function fetchSubExpenses(): Promise<SubExpense[]> {
+  if (SHEETS_CONFIG.scriptUrl) {
+    const rows = await fetchViaScript("subExpenses");
+    return rows
+      .slice(1)
+      .map((row, i) => parseSubExpenseRow(row, i))
+      .filter((s): s is SubExpense => s !== null);
   }
 
   return [];
@@ -239,4 +282,32 @@ export async function updateExpense(
   if (data.error) {
     throw new Error(data.error);
   }
+}
+
+export async function addSubExpense(
+  parentExpenseName: string,
+  name: string,
+  amount: number
+): Promise<void> {
+  if (!SHEETS_CONFIG.scriptUrl) {
+    throw new Error("Google Script URL not configured.");
+  }
+
+  await getViaScript({
+    action: "addSubExpense",
+    parentExpenseName,
+    name,
+    amount: String(amount),
+  });
+}
+
+export async function deleteSubExpense(sheetRow: number): Promise<void> {
+  if (!SHEETS_CONFIG.scriptUrl) {
+    throw new Error("Google Script URL not configured.");
+  }
+
+  await getViaScript({
+    action: "deleteSubExpense",
+    sheetRow: String(sheetRow),
+  });
 }

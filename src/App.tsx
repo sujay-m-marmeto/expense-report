@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import type { TabId, Expense } from "./types";
+import type { TabId, Expense, SubExpense } from "./types";
 import { useExpenses } from "./hooks/useExpenses";
 import { useTravellers } from "./hooks/useTravellers";
 import { useSplits } from "./hooks/useSplits";
-import { calculateBalances, calculatePersonDues, getTotalExpenses, getExpensesPaidBy, getTotalPaidBy } from "./utils/calculations";
-import { USER_STORAGE_KEY } from "./config";
+import { useSubExpenses } from "./hooks/useSubExpenses";
+import { calculateBalances, calculatePersonDues, getTotalExpenses, getExpensesPaidBy, getTotalPaidBy, mergeSubExpensesIntoExpenses } from "./utils/calculations";
+import { USER_STORAGE_KEY, isSheetsConfigured } from "./config";
 import { Header } from "./components/Header";
 import { TabNav } from "./components/TabNav";
 import { ExpenseList } from "./components/ExpenseList";
@@ -30,37 +31,50 @@ function App() {
   const [showUserModal, setShowUserModal] = useState(false);
   const [dataReady, setDataReady] = useState(false);
 
-  const { expenses, loading: expensesLoading, error: expensesError, isDemo: expensesDemo, addExpense, updateExpense } = useExpenses();
+  const { expenses, loading: expensesLoading, error: expensesError, isDemo: expensesDemo, addExpense, updateExpense, reload: reloadExpenses } = useExpenses();
   const { travellers, loading: travellersLoading, error: travellersError, isDemo: travellersDemo } = useTravellers();
   const { splits, loading: splitsLoading, error: splitsError, saveSplit } = useSplits();
+  const {
+    subExpenses,
+    loading: subExpensesLoading,
+    error: subExpensesError,
+    addSubExpense,
+    deleteSubExpense,
+    renameParent,
+  } = useSubExpenses();
 
   const isDemo = expensesDemo || travellersDemo;
-  const loading = expensesLoading || travellersLoading || splitsLoading;
+  const loading = expensesLoading || travellersLoading || splitsLoading || subExpensesLoading;
   const travellerNames = travellers.map((t) => t.name);
 
-  const total = getTotalExpenses(expenses);
+  const displayExpenses = useMemo(
+    () => mergeSubExpensesIntoExpenses(expenses, subExpenses),
+    [expenses, subExpenses]
+  );
+
+  const total = getTotalExpenses(displayExpenses);
   const balances = useMemo(
-    () => calculateBalances(expenses, travellers, splits),
-    [expenses, travellers, splits]
+    () => calculateBalances(displayExpenses, travellers, splits),
+    [displayExpenses, travellers, splits]
   );
   const perPerson = travellers.length > 0 ? total / travellers.length : 0;
 
   const userPaidTotal = useMemo(
-    () => (currentUser ? getTotalPaidBy(currentUser, expenses) : 0),
-    [currentUser, expenses]
+    () => (currentUser ? getTotalPaidBy(currentUser, displayExpenses) : 0),
+    [currentUser, displayExpenses]
   );
 
   const filteredExpenses = useMemo(() => {
     if (expenseFilter === "mine" && currentUser) {
-      return getExpensesPaidBy(currentUser, expenses);
+      return getExpensesPaidBy(currentUser, displayExpenses);
     }
-    return expenses;
-  }, [expenseFilter, currentUser, expenses]);
+    return displayExpenses;
+  }, [expenseFilter, currentUser, displayExpenses]);
 
   const userDues = useMemo(() => {
     if (!currentUser) return null;
-    return calculatePersonDues(currentUser, expenses, travellers, splits, balances);
-  }, [currentUser, expenses, travellers, splits, balances]);
+    return calculatePersonDues(currentUser, displayExpenses, travellers, splits, balances);
+  }, [currentUser, displayExpenses, travellers, splits, balances]);
 
   useEffect(() => {
     if (!loading && travellers.length > 0) {
@@ -74,6 +88,27 @@ function App() {
     localStorage.setItem(USER_STORAGE_KEY, name);
     setShowUserModal(false);
     setActiveTab("dues");
+  };
+
+  const handleUpdateExpense = async (expense: Expense, name: string, amount: number) => {
+    if (name !== expense.name) {
+      await renameParent(expense.name, name);
+    }
+    await updateExpense(expense, name, amount);
+  };
+
+  const handleAddSubExpense = async (parentName: string, name: string, amount: number) => {
+    await addSubExpense(parentName, name, amount);
+    if (isSheetsConfigured()) {
+      await reloadExpenses();
+    }
+  };
+
+  const handleDeleteSubExpense = async (sub: SubExpense) => {
+    await deleteSubExpense(sub);
+    if (isSheetsConfigured()) {
+      await reloadExpenses();
+    }
   };
 
   const handleSwitchUser = () => {
@@ -127,9 +162,9 @@ function App() {
           <DemoBanner onDismiss={() => setBannerDismissed(true)} />
         )}
 
-        {(expensesError || travellersError || splitsError) && (
+        {(expensesError || travellersError || splitsError || subExpensesError) && (
           <div className="mb-4 rounded-xl bg-rose-100/80 p-3 text-sm text-rose-700" role="alert">
-            {expensesError || travellersError || splitsError}
+            {expensesError || travellersError || splitsError || subExpensesError}
           </div>
         )}
 
@@ -195,6 +230,8 @@ function App() {
               travellers={travellers}
               splits={splits}
               onEdit={setEditingExpense}
+              onAddSubExpense={handleAddSubExpense}
+              onDeleteSubExpense={handleDeleteSubExpense}
             />
           </section>
         )}
@@ -213,7 +250,7 @@ function App() {
 
         {activeTab === "payments" && (
           <PaymentsView
-            expenses={expenses}
+            expenses={displayExpenses}
             travellers={travellers}
             splits={splits}
             onSaveSplit={saveSplit}
@@ -224,7 +261,7 @@ function App() {
           <MyDuesView
             currentUser={currentUser}
             travellers={travellers}
-            expenses={expenses}
+            expenses={displayExpenses}
             splits={splits}
             balances={balances}
             onEditExpense={setEditingExpense}
@@ -260,7 +297,7 @@ function App() {
         <EditExpenseModal
           expense={editingExpense}
           onClose={() => setEditingExpense(null)}
-          onSubmit={updateExpense}
+          onSubmit={handleUpdateExpense}
         />
       )}
     </div>

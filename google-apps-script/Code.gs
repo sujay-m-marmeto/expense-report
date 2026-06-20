@@ -2,10 +2,11 @@
  * Google Apps Script for Goa Expenses
  *
  * Setup:
- * 1. Create a Google Sheet with three tabs:
+ * 1. Create a Google Sheet with tabs:
  *    - "Expenses" with headers: Name | Amount | Paid By | Date
  *    - "Travellers" with headers: Name | Phone
  *    - "Splits" with headers: Expense | Person | Amount
+ *    - "SubExpenses" with headers: Parent Expense | Name | Amount
  * 2. Extensions > Apps Script > paste this code
  * 3. Deploy > New deployment > Web app
  *    - Execute as: Me
@@ -16,6 +17,7 @@
 const EXPENSES_SHEET = "Expenses";
 const TRAVELLERS_SHEET = "Travellers";
 const SPLITS_SHEET = "Splits";
+const SUB_EXPENSES_SHEET = "SubExpenses";
 
 function doGet(e) {
   const action = e.parameter.action;
@@ -39,6 +41,12 @@ function doGet(e) {
     return jsonResponse({ rows: rows });
   }
 
+  if (action === "subExpenses") {
+    const sheet = ss.getSheetByName(SUB_EXPENSES_SHEET);
+    const rows = sheet ? sheet.getDataRange().getValues() : [];
+    return jsonResponse({ rows: rows });
+  }
+
   if (action === "updateExpense") {
     const sheet = ss.getSheetByName(EXPENSES_SHEET);
     if (!sheet) {
@@ -57,15 +65,52 @@ function doGet(e) {
     sheet.getRange(sheetRow, 2).setValue(Number(e.parameter.amount));
 
     if (oldName && oldName.toLowerCase() !== newName.toLowerCase()) {
-      const splitsSheet = ss.getSheetByName(SPLITS_SHEET);
-      if (splitsSheet) {
-        const splitRows = splitsSheet.getDataRange().getValues();
-        for (let i = 1; i < splitRows.length; i++) {
-          if (String(splitRows[i][0]).trim().toLowerCase() === oldName.toLowerCase()) {
-            splitsSheet.getRange(i + 1, 1).setValue(newName);
-          }
-        }
-      }
+      renameExpenseInRelatedSheets(ss, oldName, newName);
+    }
+
+    return jsonResponse({ success: true });
+  }
+
+  if (action === "addSubExpense") {
+    const parentExpenseName = String(e.parameter.parentExpenseName || "").trim();
+    const name = String(e.parameter.name || "").trim();
+    const amount = Number(e.parameter.amount);
+
+    if (!parentExpenseName || !name) {
+      return jsonResponse({ error: "Parent expense and item name are required" });
+    }
+    if (!amount || amount <= 0) {
+      return jsonResponse({ error: "Invalid amount" });
+    }
+
+    let sheet = ss.getSheetByName(SUB_EXPENSES_SHEET);
+    if (!sheet) {
+      sheet = ss.insertSheet(SUB_EXPENSES_SHEET);
+      sheet.appendRow(["Parent Expense", "Name", "Amount"]);
+    }
+
+    sheet.appendRow([parentExpenseName, name, amount]);
+    syncParentExpenseTotal(ss, parentExpenseName);
+
+    return jsonResponse({ success: true });
+  }
+
+  if (action === "deleteSubExpense") {
+    const sheet = ss.getSheetByName(SUB_EXPENSES_SHEET);
+    if (!sheet) {
+      return jsonResponse({ error: "SubExpenses sheet not found" });
+    }
+
+    const sheetRow = Number(e.parameter.sheetRow);
+    if (!sheetRow || sheetRow < 2) {
+      return jsonResponse({ error: "Invalid sheet row" });
+    }
+
+    const parentExpenseName = String(sheet.getRange(sheetRow, 1).getValue()).trim();
+    sheet.deleteRow(sheetRow);
+
+    if (parentExpenseName) {
+      syncParentExpenseTotal(ss, parentExpenseName);
     }
 
     return jsonResponse({ success: true });
@@ -110,15 +155,7 @@ function doPost(e) {
     sheet.getRange(sheetRow, 2).setValue(Number(data.amount));
 
     if (oldName && oldName.toLowerCase() !== newName.toLowerCase()) {
-      const splitsSheet = ss.getSheetByName(SPLITS_SHEET);
-      if (splitsSheet) {
-        const splitRows = splitsSheet.getDataRange().getValues();
-        for (let i = 1; i < splitRows.length; i++) {
-          if (String(splitRows[i][0]).trim().toLowerCase() === oldName.toLowerCase()) {
-            splitsSheet.getRange(i + 1, 1).setValue(newName);
-          }
-        }
-      }
+      renameExpenseInRelatedSheets(ss, oldName, newName);
     }
 
     return jsonResponse({ success: true });
@@ -163,6 +200,52 @@ function doPost(e) {
   }
 
   return jsonResponse({ error: "Invalid action" });
+}
+
+function renameExpenseInRelatedSheets(ss, oldName, newName) {
+  const splitsSheet = ss.getSheetByName(SPLITS_SHEET);
+  if (splitsSheet) {
+    const splitRows = splitsSheet.getDataRange().getValues();
+    for (let i = 1; i < splitRows.length; i++) {
+      if (String(splitRows[i][0]).trim().toLowerCase() === oldName.toLowerCase()) {
+        splitsSheet.getRange(i + 1, 1).setValue(newName);
+      }
+    }
+  }
+
+  const subSheet = ss.getSheetByName(SUB_EXPENSES_SHEET);
+  if (subSheet) {
+    const subRows = subSheet.getDataRange().getValues();
+    for (let i = 1; i < subRows.length; i++) {
+      if (String(subRows[i][0]).trim().toLowerCase() === oldName.toLowerCase()) {
+        subSheet.getRange(i + 1, 1).setValue(newName);
+      }
+    }
+  }
+}
+
+function syncParentExpenseTotal(ss, parentExpenseName) {
+  const subSheet = ss.getSheetByName(SUB_EXPENSES_SHEET);
+  const expenseSheet = ss.getSheetByName(EXPENSES_SHEET);
+  if (!subSheet || !expenseSheet) return;
+
+  const parentKey = String(parentExpenseName).trim().toLowerCase();
+  const subRows = subSheet.getDataRange().getValues();
+  let total = 0;
+
+  for (let i = 1; i < subRows.length; i++) {
+    if (String(subRows[i][0]).trim().toLowerCase() === parentKey) {
+      total += Number(subRows[i][2]) || 0;
+    }
+  }
+
+  const expenseRows = expenseSheet.getDataRange().getValues();
+  for (let i = 1; i < expenseRows.length; i++) {
+    if (String(expenseRows[i][0]).trim().toLowerCase() === parentKey) {
+      expenseSheet.getRange(i + 1, 2).setValue(total);
+      break;
+    }
+  }
 }
 
 function jsonResponse(obj) {

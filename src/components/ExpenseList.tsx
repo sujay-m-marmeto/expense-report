@@ -1,6 +1,7 @@
-import type { Expense, Traveller, ExpenseSplit } from "../types";
+import type { Expense, Traveller, ExpenseSplit, SubExpense } from "../types";
 import { formatCurrency, getExpenseOwesBreakdown } from "../utils/calculations";
 import { Card } from "./Card";
+import { SubExpenseSection } from "./SubExpenseSection";
 
 function formatExpenseDate(date?: string): string | undefined {
   if (!date) return undefined;
@@ -20,9 +21,18 @@ interface ExpenseListProps {
   travellers: Traveller[];
   splits: ExpenseSplit[];
   onEdit: (expense: Expense) => void;
+  onAddSubExpense: (parentName: string, name: string, amount: number) => Promise<void>;
+  onDeleteSubExpense: (sub: SubExpense) => Promise<void>;
 }
 
-export function ExpenseList({ expenses, travellers, splits, onEdit }: ExpenseListProps) {
+export function ExpenseList({
+  expenses,
+  travellers,
+  splits,
+  onEdit,
+  onAddSubExpense,
+  onDeleteSubExpense,
+}: ExpenseListProps) {
   if (expenses.length === 0) {
     return (
       <Card className="p-8 text-center">
@@ -75,6 +85,12 @@ export function ExpenseList({ expenses, travellers, splits, onEdit }: ExpenseLis
                   </button>
                 </div>
               </div>
+
+              <SubExpenseSection
+                expense={expense}
+                onAdd={onAddSubExpense}
+                onDelete={onDeleteSubExpense}
+              />
 
               {travellers.length > 0 && (
                 <div className="mt-3 border-t border-lavender-100/80 pt-3">
