@@ -9,8 +9,10 @@ export function useExpenses() {
   const [error, setError] = useState<string | null>(null);
   const [isDemo, setIsDemo] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const data = await fetchExpenses();
@@ -19,7 +21,9 @@ export function useExpenses() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load expenses");
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -51,19 +55,23 @@ export function useExpenses() {
 
   const updateExpense = useCallback(
     async (expense: Expense, name: string, amount: number) => {
-      setExpenses((prev) =>
-        prev.map((e) => (e.id === expense.id ? { ...e, name, amount } : e))
-      );
+      const oldName = expense.name;
 
       if (!isSheetsConfigured()) {
+        setExpenses((prev) =>
+          prev.map((e) => (e.id === expense.id ? { ...e, name, amount } : e))
+        );
         return;
       }
 
       try {
-        await updateExpenseOnSheet(expense.sheetRow, name, amount, expense.name);
-        await load();
+        await updateExpenseOnSheet(expense.sheetRow, name, amount, oldName);
+        setExpenses((prev) =>
+          prev.map((e) => (e.id === expense.id ? { ...e, name, amount } : e))
+        );
+        await load({ silent: true });
       } catch (err) {
-        await load();
+        await load({ silent: true });
         throw err;
       }
     },

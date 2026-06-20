@@ -27,7 +27,9 @@ function App() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [expenseFilter, setExpenseFilter] = useState<"all" | "mine">("all");
-  const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<string | null>(() => {
+    return localStorage.getItem(USER_STORAGE_KEY);
+  });
   const [showUserModal, setShowUserModal] = useState(false);
   const [dataReady, setDataReady] = useState(false);
 
@@ -79,9 +81,17 @@ function App() {
   useEffect(() => {
     if (!loading && travellers.length > 0) {
       setDataReady(true);
-      setShowUserModal(true);
+      const stored = localStorage.getItem(USER_STORAGE_KEY);
+      const storedIsValid = stored && travellerNames.includes(stored);
+
+      if (storedIsValid) {
+        setCurrentUser(stored);
+        setShowUserModal(false);
+      } else {
+        setShowUserModal(true);
+      }
     }
-  }, [loading, travellers.length]);
+  }, [loading, travellers.length, travellerNames]);
 
   const handleUserConfirm = (name: string) => {
     setCurrentUser(name);
@@ -91,23 +101,24 @@ function App() {
   };
 
   const handleUpdateExpense = async (expense: Expense, name: string, amount: number) => {
-    if (name !== expense.name) {
-      await renameParent(expense.name, name);
+    const baseExpense = expenses.find((e) => e.id === expense.id) ?? expense;
+    if (name !== baseExpense.name) {
+      await renameParent(baseExpense.name, name);
     }
-    await updateExpense(expense, name, amount);
+    await updateExpense(baseExpense, name, amount);
   };
 
   const handleAddSubExpense = async (parentName: string, name: string, amount: number) => {
     await addSubExpense(parentName, name, amount);
     if (isSheetsConfigured()) {
-      await reloadExpenses();
+      await reloadExpenses({ silent: true });
     }
   };
 
   const handleDeleteSubExpense = async (sub: SubExpense) => {
     await deleteSubExpense(sub);
     if (isSheetsConfigured()) {
-      await reloadExpenses();
+      await reloadExpenses({ silent: true });
     }
   };
 
@@ -295,6 +306,7 @@ function App() {
 
       {editingExpense && (
         <EditExpenseModal
+          key={editingExpense.id}
           expense={editingExpense}
           onClose={() => setEditingExpense(null)}
           onSubmit={handleUpdateExpense}
