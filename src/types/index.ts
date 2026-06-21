@@ -25,6 +25,8 @@ export interface Traveller {
   name: string;
   phone: string;
   requiresPassword?: boolean;
+  /** Sheet password — kept in memory for client-side verify when Apps Script POST/CORS fails */
+  password?: string;
 }
 
 export interface PersonBalance {

@@ -75,6 +75,7 @@ function parseTravellerRow(row: SheetRow, index: number): Traveller | null {
     name,
     phone: cellString(row[1]),
     requiresPassword: password.length > 0,
+    password: password.length > 0 ? password : undefined,
   };
 }
 
@@ -169,16 +170,31 @@ function verifyPasswordFromTravellerRows(
   throw new Error("User not found");
 }
 
-async function tryServerPasswordVerify(name: string, password: string): Promise<boolean> {
-  try {
-    await postViaScript({ action: "verifyUser", name, password });
-    return true;
-  } catch (err) {
-    if (err instanceof Error && err.message === "Invalid action") {
-      return false;
-    }
-    throw err;
+function verifyPasswordFromTravellers(
+  travellers: Traveller[],
+  name: string,
+  password: string
+): void {
+  const nameKey = name.trim().toLowerCase();
+  const entered = password.trim();
+  const traveller = travellers.find((t) => t.name.trim().toLowerCase() === nameKey);
+
+  if (!traveller) {
+    throw new Error("User not found");
   }
+
+  if (!traveller.password) return;
+  if (traveller.password === entered) return;
+  throw new Error("Incorrect password");
+}
+
+function shouldFallbackToClientVerify(err: unknown): boolean {
+  if (err instanceof TypeError) return true;
+  if (err instanceof Error) {
+    if (err.message === "Invalid action") return true;
+    if (err.message === "Failed to fetch") return true;
+  }
+  return false;
 }
 
 async function getViaScript(params: Record<string, string>): Promise<Record<string, unknown>> {
@@ -382,17 +398,17 @@ export async function addSubExpense(
   });
 }
 
-export async function verifyUserPassword(name: string, password: string): Promise<void> {
+export async function verifyUserPassword(
+  name: string,
+  password: string,
+  travellers?: Traveller[]
+): Promise<void> {
   if (!SHEETS_CONFIG.scriptUrl) {
     const key = name.trim().toLowerCase();
     const expected = DEMO_PASSWORDS[key];
     if (!expected) return;
     if (password === expected) return;
     throw new Error("Incorrect password");
-  }
-
-  if (await tryServerPasswordVerify(name, password)) {
-    return;
   }
 
   try {
@@ -403,9 +419,14 @@ export async function verifyUserPassword(name: string, password: string): Promis
     });
     return;
   } catch (err) {
-    if (!(err instanceof Error && err.message === "Invalid action")) {
+    if (!shouldFallbackToClientVerify(err)) {
       throw err;
     }
+  }
+
+  if (travellers && travellers.length > 0) {
+    verifyPasswordFromTravellers(travellers, name, password);
+    return;
   }
 
   const rows = await fetchViaScript("travellers");

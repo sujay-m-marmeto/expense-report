@@ -119,7 +119,7 @@ function App() {
   };
 
   const handleVerifyPassword = async (name: string, password: string) => {
-    await verifyUserPassword(name, password);
+    await verifyUserPassword(name, password, travellers);
   };
 
   const userCanDelete = currentUser ? canDeleteExpenses(currentUser) : false;
