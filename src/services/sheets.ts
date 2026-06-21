@@ -133,22 +133,6 @@ async function fetchViaApi(range: string): Promise<SheetRow[]> {
   return data.values ?? [];
 }
 
-async function postViaScript(body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const response = await fetch(SHEETS_CONFIG.scriptUrl!, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) {
-    throw new Error(`Request failed (${response.status})`);
-  }
-  const data = await response.json();
-  if (data.error) {
-    throw new Error(data.error);
-  }
-  return data;
-}
-
 function verifyPasswordFromTravellerRows(
   rows: SheetRow[],
   name: string,
