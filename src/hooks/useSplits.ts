@@ -25,8 +25,10 @@ export function useSplits() {
   const [error, setError] = useState<string | null>(null);
   const [isDemo, setIsDemo] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       if (!isSheetsConfigured()) {
@@ -40,7 +42,9 @@ export function useSplits() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load splits");
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -82,5 +86,18 @@ export function useSplits() {
     [load]
   );
 
-  return { splits, loading, error, isDemo, reload: load, saveSplit };
+  const removeSplitsForExpense = useCallback((expenseName: string) => {
+    const expenseKey = expenseName.trim().toLowerCase();
+    setSplits((prev) => {
+      const next = prev.filter(
+        (s) => s.expenseName.trim().toLowerCase() !== expenseKey
+      );
+      if (!isSheetsConfigured()) {
+        persistDemoSplits(next);
+      }
+      return next;
+    });
+  }, []);
+
+  return { splits, loading, error, isDemo, reload: load, saveSplit, removeSplitsForExpense };
 }

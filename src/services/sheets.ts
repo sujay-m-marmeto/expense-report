@@ -264,7 +264,8 @@ export async function updateExpense(
   sheetRow: number,
   name: string,
   amount: number,
-  oldName?: string
+  oldName?: string,
+  participants: string[] = []
 ): Promise<void> {
   if (!SHEETS_CONFIG.scriptUrl) {
     throw new Error("Google Script URL not configured.");
@@ -275,6 +276,7 @@ export async function updateExpense(
     sheetRow: String(sheetRow),
     name,
     amount: String(amount),
+    participants: formatParticipantsList(participants),
   });
   if (oldName) {
     params.set("oldName", oldName);
@@ -290,6 +292,17 @@ export async function updateExpense(
   if (data.error) {
     throw new Error(data.error);
   }
+}
+
+export async function deleteExpense(sheetRow: number): Promise<void> {
+  if (!SHEETS_CONFIG.scriptUrl) {
+    throw new Error("Google Script URL not configured.");
+  }
+
+  await getViaScript({
+    action: "deleteExpense",
+    sheetRow: String(sheetRow),
+  });
 }
 
 export async function addSubExpense(

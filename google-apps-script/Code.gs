@@ -63,9 +63,31 @@ function doGet(e) {
 
     sheet.getRange(sheetRow, 1).setValue(newName);
     sheet.getRange(sheetRow, 2).setValue(Number(e.parameter.amount));
+    sheet.getRange(sheetRow, 5).setValue(String(e.parameter.participants || "").trim());
 
     if (oldName && oldName.toLowerCase() !== newName.toLowerCase()) {
       renameExpenseInRelatedSheets(ss, oldName, newName);
+    }
+
+    return jsonResponse({ success: true });
+  }
+
+  if (action === "deleteExpense") {
+    const sheet = ss.getSheetByName(EXPENSES_SHEET);
+    if (!sheet) {
+      return jsonResponse({ error: "Expenses sheet not found" });
+    }
+
+    const sheetRow = Number(e.parameter.sheetRow);
+    if (!sheetRow || sheetRow < 2) {
+      return jsonResponse({ error: "Invalid sheet row" });
+    }
+
+    const expenseName = String(sheet.getRange(sheetRow, 1).getValue()).trim();
+    sheet.deleteRow(sheetRow);
+
+    if (expenseName) {
+      deleteRelatedExpenseData(ss, expenseName);
     }
 
     return jsonResponse({ success: true });
@@ -156,6 +178,7 @@ function doPost(e) {
 
     sheet.getRange(sheetRow, 1).setValue(newName);
     sheet.getRange(sheetRow, 2).setValue(Number(data.amount));
+    sheet.getRange(sheetRow, 5).setValue(String(data.participants || "").trim());
 
     if (oldName && oldName.toLowerCase() !== newName.toLowerCase()) {
       renameExpenseInRelatedSheets(ss, oldName, newName);
@@ -203,6 +226,30 @@ function doPost(e) {
   }
 
   return jsonResponse({ error: "Invalid action" });
+}
+
+function deleteRelatedExpenseData(ss, expenseName) {
+  const expenseKey = String(expenseName).trim().toLowerCase();
+
+  const splitsSheet = ss.getSheetByName(SPLITS_SHEET);
+  if (splitsSheet) {
+    const splitRows = splitsSheet.getDataRange().getValues();
+    for (let i = splitRows.length - 1; i >= 1; i--) {
+      if (String(splitRows[i][0]).trim().toLowerCase() === expenseKey) {
+        splitsSheet.deleteRow(i + 1);
+      }
+    }
+  }
+
+  const subSheet = ss.getSheetByName(SUB_EXPENSES_SHEET);
+  if (subSheet) {
+    const subRows = subSheet.getDataRange().getValues();
+    for (let i = subRows.length - 1; i >= 1; i--) {
+      if (String(subRows[i][0]).trim().toLowerCase() === expenseKey) {
+        subSheet.deleteRow(i + 1);
+      }
+    }
+  }
 }
 
 function renameExpenseInRelatedSheets(ss, oldName, newName) {

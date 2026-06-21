@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Expense } from "../types";
-import { fetchExpenses, addExpense as addExpenseToSheet, updateExpense as updateExpenseOnSheet } from "../services/sheets";
+import { fetchExpenses, addExpense as addExpenseToSheet, updateExpense as updateExpenseOnSheet, deleteExpense as deleteExpenseOnSheet } from "../services/sheets";
 import { isSheetsConfigured } from "../config";
 
 export function useExpenses() {
@@ -55,20 +55,36 @@ export function useExpenses() {
   );
 
   const updateExpense = useCallback(
-    async (expense: Expense, name: string, amount: number) => {
+    async (
+      expense: Expense,
+      name: string,
+      amount: number,
+      participants: string[] = []
+    ) => {
       const oldName = expense.name;
+      const participantList = participants.length > 0 ? participants : undefined;
 
       if (!isSheetsConfigured()) {
         setExpenses((prev) =>
-          prev.map((e) => (e.id === expense.id ? { ...e, name, amount } : e))
+          prev.map((e) =>
+            e.id === expense.id ? { ...e, name, amount, participants: participantList } : e
+          )
         );
         return;
       }
 
       try {
-        await updateExpenseOnSheet(expense.sheetRow, name, amount, oldName);
+        await updateExpenseOnSheet(
+          expense.sheetRow,
+          name,
+          amount,
+          oldName,
+          participants
+        );
         setExpenses((prev) =>
-          prev.map((e) => (e.id === expense.id ? { ...e, name, amount } : e))
+          prev.map((e) =>
+            e.id === expense.id ? { ...e, name, amount, participants: participantList } : e
+          )
         );
         await load({ silent: true });
       } catch (err) {
@@ -79,5 +95,24 @@ export function useExpenses() {
     [load]
   );
 
-  return { expenses, loading, error, isDemo, reload: load, addExpense, updateExpense };
+  const deleteExpense = useCallback(
+    async (expense: Expense) => {
+      if (!isSheetsConfigured()) {
+        setExpenses((prev) => prev.filter((e) => e.id !== expense.id));
+        return;
+      }
+
+      try {
+        await deleteExpenseOnSheet(expense.sheetRow);
+        setExpenses((prev) => prev.filter((e) => e.id !== expense.id));
+        await load({ silent: true });
+      } catch (err) {
+        await load({ silent: true });
+        throw err;
+      }
+    },
+    [load]
+  );
+
+  return { expenses, loading, error, isDemo, reload: load, addExpense, updateExpense, deleteExpense };
 }

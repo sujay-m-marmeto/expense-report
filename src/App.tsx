@@ -34,9 +34,9 @@ function App() {
   const [dataReady, setDataReady] = useState(false);
   const [initialUserResolved, setInitialUserResolved] = useState(false);
 
-  const { expenses, loading: expensesLoading, error: expensesError, isDemo: expensesDemo, addExpense, updateExpense, reload: reloadExpenses } = useExpenses();
+  const { expenses, loading: expensesLoading, error: expensesError, isDemo: expensesDemo, addExpense, updateExpense, deleteExpense, reload: reloadExpenses } = useExpenses();
   const { travellers, loading: travellersLoading, error: travellersError, isDemo: travellersDemo } = useTravellers();
-  const { splits, loading: splitsLoading, error: splitsError, saveSplit } = useSplits();
+  const { splits, loading: splitsLoading, error: splitsError, saveSplit, removeSplitsForExpense, reload: reloadSplits } = useSplits();
   const {
     subExpenses,
     loading: subExpensesLoading,
@@ -44,6 +44,8 @@ function App() {
     addSubExpense,
     deleteSubExpense,
     renameParent,
+    deleteForParent,
+    reload: reloadSubExpenses,
   } = useSubExpenses();
 
   const isDemo = expensesDemo || travellersDemo;
@@ -103,12 +105,33 @@ function App() {
     setActiveTab("dues");
   };
 
-  const handleUpdateExpense = async (expense: Expense, name: string, amount: number) => {
+  const handleUpdateExpense = async (
+    expense: Expense,
+    name: string,
+    amount: number,
+    participants: string[]
+  ) => {
     const baseExpense = expenses.find((e) => e.id === expense.id) ?? expense;
     if (name !== baseExpense.name) {
       await renameParent(baseExpense.name, name);
     }
-    await updateExpense(baseExpense, name, amount);
+    await updateExpense(baseExpense, name, amount, participants);
+  };
+
+  const handleDeleteExpense = async (expense: Expense) => {
+    const baseExpense = expenses.find((e) => e.id === expense.id) ?? expense;
+
+    await deleteExpense(baseExpense);
+
+    if (isSheetsConfigured()) {
+      await reloadSubExpenses({ silent: true });
+      await reloadSplits({ silent: true });
+    } else {
+      deleteForParent(baseExpense.name);
+      removeSplitsForExpense(baseExpense.name);
+    }
+
+    setEditingExpense(null);
   };
 
   const handleAddSubExpense = async (
@@ -333,8 +356,10 @@ function App() {
         <EditExpenseModal
           key={editingExpense.id}
           expense={editingExpense}
+          travellers={travellerNames}
           onClose={() => setEditingExpense(null)}
           onSubmit={handleUpdateExpense}
+          onDelete={handleDeleteExpense}
         />
       )}
     </div>

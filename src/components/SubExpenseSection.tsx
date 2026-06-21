@@ -3,7 +3,7 @@ import type { Expense, SubExpense, Traveller } from "../types";
 import { formatCurrency } from "../utils/calculations";
 import { Button } from "./Button";
 import { Input } from "./Input";
-import { ParticipantPicker } from "./ParticipantPicker";
+import { ParticipantPicker, resolveParticipantSelection } from "./ParticipantPicker";
 
 interface SubExpenseSectionProps {
   expense: Expense;
@@ -24,10 +24,10 @@ export function SubExpenseSection({
   onDelete,
 }: SubExpenseSectionProps) {
   const travellerNames = travellers.map((t) => t.name);
-  const defaultParticipants =
-    expense.participants && expense.participants.length > 0
-      ? expense.participants
-      : travellerNames;
+  const defaultParticipants = resolveParticipantSelection(
+    expense.participants,
+    travellerNames
+  );
 
   const [expanded, setExpanded] = useState(false);
   const [showForm, setShowForm] = useState(false);

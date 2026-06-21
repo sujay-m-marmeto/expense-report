@@ -29,8 +29,10 @@ export function useSubExpenses() {
   const [error, setError] = useState<string | null>(null);
   const [isDemo, setIsDemo] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     setError(null);
     try {
       if (!isSheetsConfigured()) {
@@ -44,7 +46,9 @@ export function useSubExpenses() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load sub-expenses");
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -119,6 +123,19 @@ export function useSubExpenses() {
     []
   );
 
+  const deleteForParent = useCallback((parentExpenseName: string) => {
+    const parentKey = parentExpenseName.trim().toLowerCase();
+    setSubExpenses((prev) => {
+      const next = prev.filter(
+        (s) => s.parentExpenseName.trim().toLowerCase() !== parentKey
+      );
+      if (!isSheetsConfigured()) {
+        persistDemoSubExpenses(next);
+      }
+      return next;
+    });
+  }, []);
+
   return {
     subExpenses,
     loading,
@@ -128,5 +145,6 @@ export function useSubExpenses() {
     addSubExpense,
     deleteSubExpense,
     renameParent,
+    deleteForParent,
   };
 }
