@@ -132,6 +132,55 @@ async function fetchViaApi(range: string): Promise<SheetRow[]> {
   return data.values ?? [];
 }
 
+async function postViaScript(body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const response = await fetch(SHEETS_CONFIG.scriptUrl!, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error(`Request failed (${response.status})`);
+  }
+  const data = await response.json();
+  if (data.error) {
+    throw new Error(data.error);
+  }
+  return data;
+}
+
+function verifyPasswordFromTravellerRows(
+  rows: SheetRow[],
+  name: string,
+  password: string
+): void {
+  const nameKey = name.trim().toLowerCase();
+  const entered = password.trim();
+
+  for (let i = 1; i < rows.length; i++) {
+    const rowName = cellString(rows[i][0]);
+    if (rowName.toLowerCase() !== nameKey) continue;
+
+    const stored = cellString(rows[i][2]);
+    if (!stored) return;
+    if (stored === entered) return;
+    throw new Error("Incorrect password");
+  }
+
+  throw new Error("User not found");
+}
+
+async function tryServerPasswordVerify(name: string, password: string): Promise<boolean> {
+  try {
+    await postViaScript({ action: "verifyUser", name, password });
+    return true;
+  } catch (err) {
+    if (err instanceof Error && err.message === "Invalid action") {
+      return false;
+    }
+    throw err;
+  }
+}
+
 async function getViaScript(params: Record<string, string>): Promise<Record<string, unknown>> {
   const search = new URLSearchParams(params);
   const url = `${SHEETS_CONFIG.scriptUrl}?${search}`;
@@ -342,11 +391,25 @@ export async function verifyUserPassword(name: string, password: string): Promis
     throw new Error("Incorrect password");
   }
 
-  await getViaScript({
-    action: "verifyUser",
-    name,
-    password,
-  });
+  if (await tryServerPasswordVerify(name, password)) {
+    return;
+  }
+
+  try {
+    await getViaScript({
+      action: "verifyUser",
+      name,
+      password,
+    });
+    return;
+  } catch (err) {
+    if (!(err instanceof Error && err.message === "Invalid action")) {
+      throw err;
+    }
+  }
+
+  const rows = await fetchViaScript("travellers");
+  verifyPasswordFromTravellerRows(rows, name, password);
 }
 
 export async function deleteSubExpense(sheetRow: number): Promise<void> {

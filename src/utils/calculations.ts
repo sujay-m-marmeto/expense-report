@@ -446,11 +446,19 @@ export function calculatePersonDues(
 
   const netted = netSettlements(payees, owedBy);
 
+  let totalOwes = netted.payees.reduce((sum, p) => sum + p.amount, 0);
+  let totalGetsBack = netted.owedBy.reduce((sum, p) => sum + p.amount, 0);
+
+  if (totalOwes === 0 && totalGetsBack === 0) {
+    totalOwes = personBalance.balance < 0 ? Math.round(-personBalance.balance) : 0;
+    totalGetsBack = personBalance.balance > 0 ? Math.round(personBalance.balance) : 0;
+  }
+
   return {
     name: personName,
-    totalOwes: personBalance.balance < 0 ? Math.round(-personBalance.balance) : 0,
-    totalGetsBack: personBalance.balance > 0 ? Math.round(personBalance.balance) : 0,
-    balance: personBalance.balance,
+    totalOwes,
+    totalGetsBack,
+    balance: totalGetsBack - totalOwes,
     payees: netted.payees,
     owedBy: netted.owedBy,
     expenseOwes,

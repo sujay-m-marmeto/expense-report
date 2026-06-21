@@ -38,31 +38,14 @@ function doGet(e) {
   if (action === "verifyUser") {
     const name = String(e.parameter.name || "").trim();
     const password = String(e.parameter.password || "");
-
     if (!name) {
       return jsonResponse({ error: "Name is required" });
     }
-
-    const sheet = ss.getSheetByName(TRAVELLERS_SHEET);
-    if (!sheet) {
-      return jsonResponse({ error: "Travellers sheet not found" });
+    const result = verifyUserCredentials(ss, name, password);
+    if (result.error) {
+      return jsonResponse({ error: result.error });
     }
-
-    const rows = sheet.getDataRange().getValues();
-    for (let i = 1; i < rows.length; i++) {
-      if (String(rows[i][0]).trim().toLowerCase() === name.toLowerCase()) {
-        const storedPassword = String(rows[i][2] || "").trim();
-        if (!storedPassword) {
-          return jsonResponse({ success: true });
-        }
-        if (storedPassword === password) {
-          return jsonResponse({ success: true });
-        }
-        return jsonResponse({ error: "Incorrect password" });
-      }
-    }
-
-    return jsonResponse({ error: "User not found" });
+    return jsonResponse({ success: true });
   }
 
   if (action === "splits") {
@@ -217,6 +200,19 @@ function doPost(e) {
     return jsonResponse({ success: true });
   }
 
+  if (data.action === "verifyUser") {
+    const name = String(data.name || "").trim();
+    const password = String(data.password || "");
+    if (!name) {
+      return jsonResponse({ error: "Name is required" });
+    }
+    const result = verifyUserCredentials(ss, name, password);
+    if (result.error) {
+      return jsonResponse({ error: result.error });
+    }
+    return jsonResponse({ success: true });
+  }
+
   if (data.action === "saveSplit") {
     let sheet = ss.getSheetByName(SPLITS_SHEET);
 
@@ -256,6 +252,37 @@ function doPost(e) {
   }
 
   return jsonResponse({ error: "Invalid action" });
+}
+
+function cellPassword(value) {
+  if (value == null || value === "") return "";
+  return String(value).trim();
+}
+
+function verifyUserCredentials(ss, name, password) {
+  const sheet = ss.getSheetByName(TRAVELLERS_SHEET);
+  if (!sheet) {
+    return { error: "Travellers sheet not found" };
+  }
+
+  const rows = sheet.getDataRange().getValues();
+  const nameKey = name.trim().toLowerCase();
+  const entered = cellPassword(password);
+
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).trim().toLowerCase() === nameKey) {
+      const storedPassword = cellPassword(rows[i][2]);
+      if (!storedPassword) {
+        return { success: true };
+      }
+      if (storedPassword === entered) {
+        return { success: true };
+      }
+      return { error: "Incorrect password" };
+    }
+  }
+
+  return { error: "User not found" };
 }
 
 function deleteRelatedExpenseData(ss, expenseName) {
