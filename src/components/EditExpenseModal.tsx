@@ -15,6 +15,7 @@ interface EditExpenseModalProps {
     participants: string[]
   ) => Promise<void>;
   onDelete: (expense: Expense) => Promise<void>;
+  canDelete?: boolean;
 }
 
 export function EditExpenseModal({
@@ -23,6 +24,7 @@ export function EditExpenseModal({
   onClose,
   onSubmit,
   onDelete,
+  canDelete = false,
 }: EditExpenseModalProps) {
   const hasSubExpenses = expense.hasSubExpenses ?? false;
   const [name, setName] = useState(expense.name);
@@ -159,39 +161,41 @@ export function EditExpenseModal({
             <p className="text-sm font-medium text-red-600" role="alert">{error}</p>
           )}
 
-          {showDeleteConfirm ? (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
-              <p className="text-sm font-medium text-rose-800">
-                Delete &ldquo;{expense.name}&rdquo;? This removes the expense, its breakdown, and payment records.
-              </p>
-              <div className="mt-3 flex gap-2">
-                <Button
-                  variant="secondary"
-                  type="button"
-                  onClick={() => setShowDeleteConfirm(false)}
-                  disabled={deleting}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                  className="!bg-rose-600 hover:!bg-rose-700"
-                >
-                  {deleting ? "Deleting..." : "Delete"}
-                </Button>
+          {canDelete && (
+            showDeleteConfirm ? (
+              <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+                <p className="text-sm font-medium text-rose-800">
+                  Delete &ldquo;{expense.name}&rdquo;? This removes the expense, its breakdown, and payment records.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    onClick={() => setShowDeleteConfirm(false)}
+                    disabled={deleting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="!bg-rose-600 hover:!bg-rose-700"
+                  >
+                    {deleting ? "Deleting..." : "Delete"}
+                  </Button>
+                </div>
               </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setShowDeleteConfirm(true)}
-              disabled={busy}
-              className="text-sm font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-50 touch-manipulation"
-            >
-              Delete expense
-            </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={busy}
+                className="text-sm font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-50 touch-manipulation"
+              >
+                Delete expense
+              </button>
+            )
           )}
 
           <div className="flex gap-3 pt-2">

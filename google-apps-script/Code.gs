@@ -4,7 +4,7 @@
  * Setup:
  * 1. Create a Google Sheet with tabs:
  *    - "Expenses" with headers: Name | Amount | Paid By | Date | Participants
- *    - "Travellers" with headers: Name | Phone
+ *    - "Travellers" with headers: Name | Phone | Password
  *    - "Splits" with headers: Expense | Person | Amount
  *    - "SubExpenses" with headers: Parent Expense | Name | Amount | Participants
  * 2. Extensions > Apps Script > paste this code
@@ -33,6 +33,36 @@ function doGet(e) {
     const sheet = ss.getSheetByName(TRAVELLERS_SHEET);
     const rows = sheet ? sheet.getDataRange().getValues() : [];
     return jsonResponse({ rows: rows });
+  }
+
+  if (action === "verifyUser") {
+    const name = String(e.parameter.name || "").trim();
+    const password = String(e.parameter.password || "");
+
+    if (!name) {
+      return jsonResponse({ error: "Name is required" });
+    }
+
+    const sheet = ss.getSheetByName(TRAVELLERS_SHEET);
+    if (!sheet) {
+      return jsonResponse({ error: "Travellers sheet not found" });
+    }
+
+    const rows = sheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]).trim().toLowerCase() === name.toLowerCase()) {
+        const storedPassword = String(rows[i][2] || "").trim();
+        if (!storedPassword) {
+          return jsonResponse({ success: true });
+        }
+        if (storedPassword === password) {
+          return jsonResponse({ success: true });
+        }
+        return jsonResponse({ error: "Incorrect password" });
+      }
+    }
+
+    return jsonResponse({ error: "User not found" });
   }
 
   if (action === "splits") {

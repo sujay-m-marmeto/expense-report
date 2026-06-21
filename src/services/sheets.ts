@@ -3,13 +3,19 @@ import type { Expense, Traveller, ExpenseSplit, SubExpense } from "../types";
 import { parseParticipantsList, formatParticipantsList } from "../utils/calculations";
 
 const DEMO_TRAVELLERS: Traveller[] = [
-  { id: "1", name: "Sujay", phone: "+91 98765 43210" },
+  { id: "1", name: "Sujay", phone: "+91 98765 43210", requiresPassword: true },
   { id: "2", name: "Rahul", phone: "+91 98765 43211" },
   { id: "3", name: "Amit", phone: "+91 98765 43212" },
   { id: "4", name: "Vikram", phone: "+91 98765 43213" },
   { id: "5", name: "Arjun", phone: "+91 98765 43214" },
   { id: "6", name: "Karan", phone: "+91 98765 43215" },
+  { id: "7", name: "Dhruva", phone: "+91 98765 43216", requiresPassword: true },
 ];
+
+const DEMO_PASSWORDS: Record<string, string> = {
+  sujay: "goa123",
+  dhruva: "goa123",
+};
 
 const DEMO_EXPENSES: Expense[] = [
   { id: "exp-0", rowIndex: 0, sheetRow: 2, name: "Hotel Stay", amount: 12000, paidBy: "Sujay", date: "2026-06-15" },
@@ -62,10 +68,13 @@ function parseTravellerRow(row: SheetRow, index: number): Traveller | null {
   const name = cellString(row[0]);
   if (!name) return null;
 
+  const password = cellString(row[2]);
+
   return {
     id: `trav-${index}`,
     name,
     phone: cellString(row[1]),
+    requiresPassword: password.length > 0,
   };
 }
 
@@ -167,7 +176,7 @@ export async function fetchTravellers(): Promise<Traveller[]> {
   }
 
   if (SHEETS_CONFIG.apiKey && SHEETS_CONFIG.sheetId) {
-    const rows = await fetchViaApi("Travellers!A:B");
+    const rows = await fetchViaApi("Travellers!A:C");
     return rows
       .slice(1)
       .map((row, i) => parseTravellerRow(row, i))
@@ -321,6 +330,22 @@ export async function addSubExpense(
     name,
     amount: String(amount),
     participants: formatParticipantsList(participants),
+  });
+}
+
+export async function verifyUserPassword(name: string, password: string): Promise<void> {
+  if (!SHEETS_CONFIG.scriptUrl) {
+    const key = name.trim().toLowerCase();
+    const expected = DEMO_PASSWORDS[key];
+    if (!expected) return;
+    if (password === expected) return;
+    throw new Error("Incorrect password");
+  }
+
+  await getViaScript({
+    action: "verifyUser",
+    name,
+    password,
   });
 }
 

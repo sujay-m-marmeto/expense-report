@@ -6,6 +6,15 @@ import { useSplits } from "./hooks/useSplits";
 import { useSubExpenses } from "./hooks/useSubExpenses";
 import { calculateBalances, calculatePersonDues, getTotalExpenses, getExpensesPaidBy, getTotalPaidBy, mergeSubExpensesIntoExpenses } from "./utils/calculations";
 import { USER_STORAGE_KEY, isSheetsConfigured } from "./config";
+import { verifyUserPassword } from "./services/sheets";
+import {
+  canAutoLogin,
+  canDeleteExpenses,
+  clearAuthSession,
+  isAdminUser,
+  setAuthSession,
+  travellerRequiresPassword,
+} from "./utils/auth";
 import { Header } from "./components/Header";
 import { TabNav } from "./components/TabNav";
 import { ExpenseList } from "./components/ExpenseList";
@@ -27,9 +36,7 @@ function App() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [expenseFilter, setExpenseFilter] = useState<"all" | "mine">("all");
-  const [currentUser, setCurrentUser] = useState<string | null>(() => {
-    return localStorage.getItem(USER_STORAGE_KEY);
-  });
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [dataReady, setDataReady] = useState(false);
   const [initialUserResolved, setInitialUserResolved] = useState(false);
@@ -90,20 +97,32 @@ function App() {
     const stored = localStorage.getItem(USER_STORAGE_KEY);
     const storedIsValid = stored && travellers.some((t) => t.name === stored);
 
-    if (storedIsValid) {
+    if (storedIsValid && canAutoLogin(stored, travellers)) {
       setCurrentUser(stored);
       setShowUserModal(false);
     } else {
+      setCurrentUser(null);
       setShowUserModal(true);
     }
   }, [loading, travellers, initialUserResolved]);
 
   const handleUserConfirm = (name: string) => {
+    if (isAdminUser(name) && travellerRequiresPassword(name, travellers)) {
+      setAuthSession(name);
+    } else {
+      clearAuthSession();
+    }
     setCurrentUser(name);
     localStorage.setItem(USER_STORAGE_KEY, name);
     setShowUserModal(false);
     setActiveTab("dues");
   };
+
+  const handleVerifyPassword = async (name: string, password: string) => {
+    await verifyUserPassword(name, password);
+  };
+
+  const userCanDelete = currentUser ? canDeleteExpenses(currentUser) : false;
 
   const handleUpdateExpense = async (
     expense: Expense,
@@ -119,6 +138,10 @@ function App() {
   };
 
   const handleDeleteExpense = async (expense: Expense) => {
+    if (!userCanDelete) {
+      throw new Error("Only Sujay and Dhruva can delete expenses");
+    }
+
     const baseExpense = expenses.find((e) => e.id === expense.id) ?? expense;
 
     await deleteExpense(baseExpense);
@@ -154,6 +177,7 @@ function App() {
   };
 
   const handleSwitchUser = () => {
+    clearAuthSession();
     setShowUserModal(true);
   };
 
@@ -194,9 +218,11 @@ function App() {
     return (
       <DuesNameModal
         travellers={travellers}
-        initialName={currentUser ?? storedUserName}
+        initialName={storedUserName ?? travellers[0]?.name}
         onConfirm={handleUserConfirm}
         onCancel={currentUser ? () => setShowUserModal(false) : undefined}
+        requiresPassword={(name) => travellerRequiresPassword(name, travellers)}
+        verifyPassword={handleVerifyPassword}
       />
     );
   }
@@ -360,6 +386,7 @@ function App() {
           onClose={() => setEditingExpense(null)}
           onSubmit={handleUpdateExpense}
           onDelete={handleDeleteExpense}
+          canDelete={userCanDelete}
         />
       )}
     </div>

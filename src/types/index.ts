@@ -24,6 +24,7 @@ export interface Traveller {
   id: string;
   name: string;
   phone: string;
+  requiresPassword?: boolean;
 }
 
 export interface PersonBalance {
