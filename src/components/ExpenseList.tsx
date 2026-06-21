@@ -21,7 +21,12 @@ interface ExpenseListProps {
   travellers: Traveller[];
   splits: ExpenseSplit[];
   onEdit: (expense: Expense) => void;
-  onAddSubExpense: (parentName: string, name: string, amount: number) => Promise<void>;
+  onAddSubExpense: (
+    parentName: string,
+    name: string,
+    amount: number,
+    participants: string[]
+  ) => Promise<void>;
   onDeleteSubExpense: (sub: SubExpense) => Promise<void>;
 }
 
@@ -48,7 +53,9 @@ export function ExpenseList({
     <ul className="flex flex-col gap-3" aria-label="Expense list">
       {expenses.map((expense, index) => {
         const owesBreakdown = getExpenseOwesBreakdown(expense, travellers, splits);
-        const equalShare = owesBreakdown[0]?.share ?? 0;
+        const shares = owesBreakdown.map((p) => p.share);
+        const allSameShare =
+          shares.length > 0 && shares.every((s) => s === shares[0]);
 
         return (
           <li
@@ -70,6 +77,13 @@ export function ExpenseList({
                       {formatExpenseDate(expense.date)}
                     </p>
                   )}
+                  {expense.participants &&
+                    expense.participants.length > 0 &&
+                    expense.participants.length < travellers.length && (
+                      <p className="mt-0.5 text-xs text-lavender-500/70">
+                        Split: {expense.participants.join(", ")}
+                      </p>
+                    )}
                 </div>
                 <div className="flex shrink-0 items-start gap-2">
                   <p className="text-lg font-bold text-lavender-800 pt-0.5">
@@ -88,14 +102,17 @@ export function ExpenseList({
 
               <SubExpenseSection
                 expense={expense}
+                travellers={travellers}
                 onAdd={onAddSubExpense}
                 onDelete={onDeleteSubExpense}
               />
 
-              {travellers.length > 0 && (
+              {travellers.length > 0 && owesBreakdown.length > 0 && (
                 <div className="mt-3 border-t border-lavender-100/80 pt-3">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-lavender-500/80">
-                    Each owes {formatCurrency(equalShare)}
+                    {allSameShare
+                      ? `Each owes ${formatCurrency(shares[0])}`
+                      : `Split among ${owesBreakdown.length} people`}
                   </p>
                   <ul className="flex flex-wrap gap-1.5" aria-label={`Who owes for ${expense.name}`}>
                     {owesBreakdown.map((person) => (

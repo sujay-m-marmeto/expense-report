@@ -1,5 +1,6 @@
 import { SHEETS_CONFIG } from "../config";
 import type { Expense, Traveller, ExpenseSplit, SubExpense } from "../types";
+import { parseParticipantsList, formatParticipantsList } from "../utils/calculations";
 
 const DEMO_TRAVELLERS: Traveller[] = [
   { id: "1", name: "Sujay", phone: "+91 98765 43210" },
@@ -43,6 +44,7 @@ function parseExpenseRow(row: SheetRow, index: number): Expense | null {
 
   const paidBy = cellString(row[2]) || "Unknown";
   const date = cellString(row[3]) || undefined;
+  const participants = parseParticipantsList(row[4]);
 
   return {
     id: `exp-${index}`,
@@ -52,6 +54,7 @@ function parseExpenseRow(row: SheetRow, index: number): Expense | null {
     amount,
     paidBy,
     date,
+    participants: participants.length > 0 ? participants : undefined,
   };
 }
 
@@ -90,12 +93,15 @@ function parseSubExpenseRow(row: SheetRow, index: number): SubExpense | null {
   const amount = parseAmount(row[2]);
   if (isNaN(amount) || amount <= 0) return null;
 
+  const participants = parseParticipantsList(row[3]);
+
   return {
     id: `sub-${index}`,
     sheetRow: index + 2,
     parentExpenseName,
     name,
     amount,
+    participants: participants.length > 0 ? participants : undefined,
   };
 }
 
@@ -230,7 +236,8 @@ export async function saveSplit(
 export async function addExpense(
   name: string,
   amount: number,
-  paidBy: string
+  paidBy: string,
+  participants: string[] = []
 ): Promise<void> {
   if (!SHEETS_CONFIG.scriptUrl) {
     throw new Error("Google Script URL not configured. Add expense locally only in demo mode.");
@@ -246,6 +253,7 @@ export async function addExpense(
       amount,
       paidBy,
       date: new Date().toISOString().split("T")[0],
+      participants: formatParticipantsList(participants),
     }),
   });
 
@@ -287,7 +295,8 @@ export async function updateExpense(
 export async function addSubExpense(
   parentExpenseName: string,
   name: string,
-  amount: number
+  amount: number,
+  participants: string[] = []
 ): Promise<void> {
   if (!SHEETS_CONFIG.scriptUrl) {
     throw new Error("Google Script URL not configured.");
@@ -298,6 +307,7 @@ export async function addSubExpense(
     parentExpenseName,
     name,
     amount: String(amount),
+    participants: formatParticipantsList(participants),
   });
 }
 

@@ -3,10 +3,10 @@
  *
  * Setup:
  * 1. Create a Google Sheet with tabs:
- *    - "Expenses" with headers: Name | Amount | Paid By | Date
+ *    - "Expenses" with headers: Name | Amount | Paid By | Date | Participants
  *    - "Travellers" with headers: Name | Phone
  *    - "Splits" with headers: Expense | Person | Amount
- *    - "SubExpenses" with headers: Parent Expense | Name | Amount
+ *    - "SubExpenses" with headers: Parent Expense | Name | Amount | Participants
  * 2. Extensions > Apps Script > paste this code
  * 3. Deploy > New deployment > Web app
  *    - Execute as: Me
@@ -83,13 +83,15 @@ function doGet(e) {
       return jsonResponse({ error: "Invalid amount" });
     }
 
+    const participants = String(e.parameter.participants || "").trim();
+
     let sheet = ss.getSheetByName(SUB_EXPENSES_SHEET);
     if (!sheet) {
       sheet = ss.insertSheet(SUB_EXPENSES_SHEET);
-      sheet.appendRow(["Parent Expense", "Name", "Amount"]);
+      sheet.appendRow(["Parent Expense", "Name", "Amount", "Participants"]);
     }
 
-    sheet.appendRow([parentExpenseName, name, amount]);
+    sheet.appendRow([parentExpenseName, name, amount, participants]);
     syncParentExpenseTotal(ss, parentExpenseName);
 
     return jsonResponse({ success: true });
@@ -128,7 +130,7 @@ function doPost(e) {
 
     if (!sheet) {
       sheet = ss.insertSheet(EXPENSES_SHEET);
-      sheet.appendRow(["Name", "Amount", "Paid By", "Date"]);
+      sheet.appendRow(["Name", "Amount", "Paid By", "Date", "Participants"]);
     }
 
     sheet.appendRow([
@@ -136,6 +138,7 @@ function doPost(e) {
       data.amount,
       data.paidBy,
       data.date || new Date().toISOString().split("T")[0],
+      String(data.participants || "").trim(),
     ]);
 
     return jsonResponse({ success: true });

@@ -6,6 +6,7 @@ import {
   getExpenseEqualShare,
   getExpenseSplitTotal,
   getSplitsForExpense,
+  getExpensePaymentParticipants,
 } from "../utils/calculations";
 import { Card } from "./Card";
 import { Button } from "./Button";
@@ -65,7 +66,7 @@ export function ExpenseSplitsSection({
   };
 
   const handleMarkPaid = async (expense: Expense, personName: string) => {
-    const equalShare = Math.round(getExpenseEqualShare(expense, travellers.length));
+    const equalShare = Math.round(getExpenseEqualShare(expense, travellers));
     const key = getRowKey(expense.name, personName);
     setRowField(key, { amount: String(equalShare) });
     await handleSave(expense, personName, String(equalShare));
@@ -91,7 +92,8 @@ export function ExpenseSplitsSection({
           const isExpanded = expandedId === expense.id;
           const expenseSplits = getSplitsForExpense(splits, expense.name);
           const recordedTotal = getExpenseSplitTotal(splits, expense.name);
-          const equalShare = Math.round(getExpenseEqualShare(expense, travellers.length));
+          const participants = getExpensePaymentParticipants(expense, travellers);
+          const equalShare = Math.round(getExpenseEqualShare(expense, travellers));
           const hasSplits = expenseSplits.length > 0;
 
           return (
@@ -109,6 +111,9 @@ export function ExpenseSplitsSection({
                     </h3>
                     <p className="mt-0.5 text-xs text-lavender-600/70">
                       {formatCurrency(expense.amount)} total · {formatCurrency(equalShare)} each
+                      {participants.length < travellers.length && (
+                        <span className="ml-1">· {participants.length} people</span>
+                      )}
                       {hasSplits && (
                         <span className="ml-1 text-emerald-600">
                           · {formatCurrency(recordedTotal)} recorded
@@ -128,7 +133,7 @@ export function ExpenseSplitsSection({
                 {isExpanded && (
                   <div className="border-t border-lavender-100/80 px-4 pb-4 pt-3">
                     <ul className="flex flex-col gap-2">
-                      {travellers.map((traveller) => {
+                      {participants.map((traveller) => {
                         const key = getRowKey(expense.name, traveller.name);
                         const existing = findSplitAmount(splits, expense.name, traveller.name);
                         const state = getRowState(key);

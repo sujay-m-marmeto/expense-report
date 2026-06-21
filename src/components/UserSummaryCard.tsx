@@ -40,7 +40,7 @@ export function UserSummaryCard({ dues, onViewDetails }: UserSummaryCardProps) {
           <button
             type="button"
             onClick={onViewDetails}
-            className="shrink-0 rounded-xl bg-lavender-100 px-3 py-2 text-xs font-semibold text-lavender-700 transition-colors hover:bg-lavender-200"
+            className="shrink-0 min-h-11 rounded-xl bg-lavender-100 px-3 py-2.5 text-xs font-semibold text-lavender-700 transition-colors hover:bg-lavender-200 touch-manipulation"
           >
             Details
           </button>

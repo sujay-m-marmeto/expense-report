@@ -32,7 +32,7 @@ export function useExpenses() {
   }, [load]);
 
   const addExpense = useCallback(
-    async (name: string, amount: number, paidBy: string) => {
+    async (name: string, amount: number, paidBy: string, participants: string[] = []) => {
       if (!isSheetsConfigured()) {
         const newExpense: Expense = {
           id: `local-${Date.now()}`,
@@ -42,12 +42,13 @@ export function useExpenses() {
           amount,
           paidBy,
           date: new Date().toISOString().split("T")[0],
+          participants: participants.length > 0 ? participants : undefined,
         };
         setExpenses((prev) => [...prev, newExpense]);
         return;
       }
 
-      await addExpenseToSheet(name, amount, paidBy);
+      await addExpenseToSheet(name, amount, paidBy, participants);
       await load();
     },
     [load, expenses.length]

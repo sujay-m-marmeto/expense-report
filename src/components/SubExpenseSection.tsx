@@ -1,26 +1,50 @@
 import { useState } from "react";
-import type { Expense, SubExpense } from "../types";
+import type { Expense, SubExpense, Traveller } from "../types";
 import { formatCurrency } from "../utils/calculations";
 import { Button } from "./Button";
 import { Input } from "./Input";
+import { ParticipantPicker } from "./ParticipantPicker";
 
 interface SubExpenseSectionProps {
   expense: Expense;
-  onAdd: (parentName: string, name: string, amount: number) => Promise<void>;
+  travellers: Traveller[];
+  onAdd: (
+    parentName: string,
+    name: string,
+    amount: number,
+    participants: string[]
+  ) => Promise<void>;
   onDelete: (sub: SubExpense) => Promise<void>;
 }
 
-export function SubExpenseSection({ expense, onAdd, onDelete }: SubExpenseSectionProps) {
+export function SubExpenseSection({
+  expense,
+  travellers,
+  onAdd,
+  onDelete,
+}: SubExpenseSectionProps) {
+  const travellerNames = travellers.map((t) => t.name);
+  const defaultParticipants =
+    expense.participants && expense.participants.length > 0
+      ? expense.participants
+      : travellerNames;
+
   const [expanded, setExpanded] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
+  const [participants, setParticipants] = useState<string[]>([...defaultParticipants]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const subs = expense.subExpenses ?? [];
   const hasSubs = subs.length > 0;
+
+  const openAddForm = () => {
+    setParticipants([...defaultParticipants]);
+    setShowForm(true);
+  };
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,10 +59,14 @@ export function SubExpenseSection({ expense, onAdd, onDelete }: SubExpenseSectio
       setError("Enter a valid amount");
       return;
     }
+    if (participants.length === 0) {
+      setError("Select at least one person");
+      return;
+    }
 
     setSubmitting(true);
     try {
-      await onAdd(expense.name, name.trim(), parsedAmount);
+      await onAdd(expense.name, name.trim(), parsedAmount, participants);
       setName("");
       setAmount("");
       setShowForm(false);
@@ -80,23 +108,30 @@ export function SubExpenseSection({ expense, onAdd, onDelete }: SubExpenseSectio
               {subs.map((sub) => (
                 <li
                   key={sub.id}
-                  className="flex items-center justify-between gap-2 rounded-lg bg-lavender-50/80 px-3 py-2"
+                  className="rounded-lg bg-lavender-50/80 px-3 py-2"
                 >
-                  <span className="min-w-0 truncate text-sm text-lavender-800">{sub.name}</span>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-sm font-semibold text-lavender-900">
-                      {formatCurrency(sub.amount)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(sub)}
-                      disabled={deletingId === sub.id}
-                      className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 disabled:opacity-50"
-                      aria-label={`Remove ${sub.name}`}
-                    >
-                      {deletingId === sub.id ? "…" : "✕"}
-                    </button>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-sm text-lavender-800">{sub.name}</span>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-sm font-semibold text-lavender-900">
+                        {formatCurrency(sub.amount)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(sub)}
+                        disabled={deletingId === sub.id}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-rose-500 transition-colors hover:bg-rose-50 disabled:opacity-50"
+                        aria-label={`Remove ${sub.name}`}
+                      >
+                        {deletingId === sub.id ? "…" : "✕"}
+                      </button>
+                    </div>
                   </div>
+                  {sub.participants && sub.participants.length > 0 && (
+                    <p className="mt-1 text-xs text-lavender-500/80">
+                      Split: {sub.participants.join(", ")}
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>
@@ -127,6 +162,12 @@ export function SubExpenseSection({ expense, onAdd, onDelete }: SubExpenseSectio
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
               />
+              <ParticipantPicker
+                travellers={travellerNames}
+                selected={participants}
+                onChange={setParticipants}
+                label="Split among"
+              />
               {error && (
                 <p className="text-xs font-medium text-red-600" role="alert">{error}</p>
               )}
@@ -149,7 +190,7 @@ export function SubExpenseSection({ expense, onAdd, onDelete }: SubExpenseSectio
           ) : (
             <button
               type="button"
-              onClick={() => setShowForm(true)}
+              onClick={openAddForm}
               className="text-sm font-medium text-lavender-600 hover:text-lavender-800"
             >
               + Add item

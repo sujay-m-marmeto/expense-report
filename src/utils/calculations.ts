@@ -12,6 +12,37 @@ function normalizeKey(value: string): string {
   return value.trim().toLowerCase();
 }
 
+export function parseParticipantsList(value: unknown): string[] {
+  if (value == null || value === "") return [];
+  const str = typeof value === "string" ? value : String(value);
+  return str
+    .split(/[,;]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export function formatParticipantsList(names: string[]): string {
+  return names.join(", ");
+}
+
+export function getExpenseParticipants(expense: Expense, travellers: Traveller[]): Traveller[] {
+  const list = expense.participants;
+  if (!list || list.length === 0) return travellers;
+
+  const keys = new Set(list.map(normalizeKey));
+  const matched = travellers.filter((t) => keys.has(normalizeKey(t.name)));
+  return matched.length > 0 ? matched : travellers;
+}
+
+export function getSubExpenseParticipants(sub: SubExpense, travellers: Traveller[]): Traveller[] {
+  const list = sub.participants;
+  if (!list || list.length === 0) return travellers;
+
+  const keys = new Set(list.map(normalizeKey));
+  const matched = travellers.filter((t) => keys.has(normalizeKey(t.name)));
+  return matched.length > 0 ? matched : travellers;
+}
+
 function paidToFromKey(payeeKey: string, expenses: Expense[]): string {
   const expense = expenses.find((e) => normalizeKey(e.paidBy) === payeeKey);
   return expense?.paidBy ?? payeeKey;
@@ -55,9 +86,59 @@ function settlementsFromMap(
     .sort((a, b) => b.amount - a.amount);
 }
 
-export function getExpenseEqualShare(expense: Expense, travellerCount: number): number {
-  if (travellerCount <= 0) return expense.amount;
-  return expense.amount / travellerCount;
+function netSettlements(
+  payees: PayeeSettlement[],
+  owedBy: PayeeSettlement[]
+): { payees: PayeeSettlement[]; owedBy: PayeeSettlement[] } {
+  const payeeMap = new Map<string, PayeeSettlement>();
+  for (const payee of payees) {
+    payeeMap.set(normalizeKey(payee.name), payee);
+  }
+
+  const owedMap = new Map<string, PayeeSettlement>();
+  for (const debtor of owedBy) {
+    owedMap.set(normalizeKey(debtor.name), debtor);
+  }
+
+  const allKeys = new Set([...payeeMap.keys(), ...owedMap.keys()]);
+  const netPayees: PayeeSettlement[] = [];
+  const netOwedBy: PayeeSettlement[] = [];
+
+  for (const key of allKeys) {
+    const payee = payeeMap.get(key);
+    const debtor = owedMap.get(key);
+    const payAmount = payee?.amount ?? 0;
+    const owedAmount = debtor?.amount ?? 0;
+    const net = payAmount - owedAmount;
+
+    if (net > 0) {
+      netPayees.push({
+        name: payee?.name ?? debtor?.name ?? key,
+        phone: payee?.phone ?? debtor?.phone ?? "",
+        amount: net,
+      });
+    } else if (net < 0) {
+      netOwedBy.push({
+        name: debtor?.name ?? payee?.name ?? key,
+        phone: debtor?.phone ?? payee?.phone ?? "",
+        amount: -net,
+      });
+    }
+  }
+
+  netPayees.sort((a, b) => b.amount - a.amount);
+  netOwedBy.sort((a, b) => b.amount - a.amount);
+
+  return { payees: netPayees, owedBy: netOwedBy };
+}
+
+export function getExpensePaymentParticipants(expense: Expense, travellers: Traveller[]): Traveller[] {
+  if (expense.subExpenses && expense.subExpenses.length > 0) {
+    const breakdown = getExpenseOwesBreakdown(expense, travellers, []);
+    const keys = new Set(breakdown.map((b) => normalizeKey(b.name)));
+    return travellers.filter((t) => keys.has(normalizeKey(t.name)));
+  }
+  return getExpenseParticipants(expense, travellers);
 }
 
 export function findSplitAmount(
@@ -83,13 +164,28 @@ export function calculateBalances(
   travellers: Traveller[],
   splits: ExpenseSplit[] = []
 ): PersonBalance[] {
-  const total = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const count = travellers.length || 1;
-  const sharePerPerson = total / count;
-
+  const shareMap = new Map<string, number>();
   const paidMap = new Map<string, number>();
 
   for (const expense of expenses) {
+    if (expense.subExpenses && expense.subExpenses.length > 0) {
+      for (const sub of expense.subExpenses) {
+        const participants = getSubExpenseParticipants(sub, travellers);
+        const share = sub.amount / (participants.length || 1);
+        for (const participant of participants) {
+          const key = normalizeKey(participant.name);
+          shareMap.set(key, (shareMap.get(key) ?? 0) + share);
+        }
+      }
+    } else {
+      const participants = getExpenseParticipants(expense, travellers);
+      const share = expense.amount / (participants.length || 1);
+      for (const participant of participants) {
+        const key = normalizeKey(participant.name);
+        shareMap.set(key, (shareMap.get(key) ?? 0) + share);
+      }
+    }
+
     const expenseSplits = getSplitsForExpense(splits, expense.name);
 
     if (expenseSplits.length > 0) {
@@ -104,13 +200,15 @@ export function calculateBalances(
   }
 
   return travellers.map((traveller) => {
-    const paid = paidMap.get(normalizeKey(traveller.name)) ?? 0;
-    const balance = paid - sharePerPerson;
+    const key = normalizeKey(traveller.name);
+    const paid = paidMap.get(key) ?? 0;
+    const share = shareMap.get(key) ?? 0;
+    const balance = paid - share;
     return {
       name: traveller.name,
       phone: traveller.phone,
       paid,
-      share: sharePerPerson,
+      share,
       balance,
     };
   });
@@ -173,13 +271,55 @@ export function getExpenseOwesBreakdown(
   travellers: Traveller[],
   splits: ExpenseSplit[]
 ): ExpensePersonOwes[] {
-  const count = travellers.length || 1;
-  const share = getExpenseEqualShare(expense, count);
-  const roundedShare = Math.round(share);
   const expenseSplits = getSplitsForExpense(splits, expense.name);
   const hasSplits = expenseSplits.length > 0;
+  const hasSubs = expense.subExpenses && expense.subExpenses.length > 0;
 
-  return travellers.map((traveller) => {
+  if (hasSubs) {
+    const shareMap = new Map<string, number>();
+    const participantKeys = new Set<string>();
+
+    for (const sub of expense.subExpenses!) {
+      const participants = getSubExpenseParticipants(sub, travellers);
+      const count = participants.length || 1;
+      const subShare = sub.amount / count;
+      for (const participant of participants) {
+        const key = normalizeKey(participant.name);
+        participantKeys.add(key);
+        shareMap.set(key, (shareMap.get(key) ?? 0) + subShare);
+      }
+    }
+
+    const participantsList = travellers.filter((t) => participantKeys.has(normalizeKey(t.name)));
+
+    return participantsList.map((traveller) => {
+      const key = normalizeKey(traveller.name);
+      const roundedShare = Math.round(shareMap.get(key) ?? 0);
+      let paid = 0;
+
+      if (hasSplits) {
+        paid = findSplitAmount(splits, expense.name, traveller.name) ?? 0;
+      } else if (key === normalizeKey(expense.paidBy)) {
+        paid = expense.amount;
+      }
+
+      const owes = Math.max(0, Math.round(roundedShare - paid));
+
+      return {
+        name: traveller.name,
+        share: roundedShare,
+        paid,
+        owes,
+      };
+    });
+  }
+
+  const participants = getExpenseParticipants(expense, travellers);
+  const count = participants.length || 1;
+  const share = expense.amount / count;
+  const roundedShare = Math.round(share);
+
+  return participants.map((traveller) => {
     let paid = 0;
 
     if (hasSplits) {
@@ -188,7 +328,7 @@ export function getExpenseOwesBreakdown(
       paid = expense.amount;
     }
 
-    const owes = Math.max(0, Math.round(share - paid));
+    const owes = Math.max(0, Math.round(roundedShare - paid));
 
     return {
       name: traveller.name,
@@ -197,6 +337,12 @@ export function getExpenseOwesBreakdown(
       owes,
     };
   });
+}
+
+export function getExpenseEqualShare(expense: Expense, travellers: Traveller[]): number {
+  const breakdown = getExpenseOwesBreakdown(expense, travellers, []);
+  if (breakdown.length === 0) return expense.amount;
+  return breakdown[0].share;
 }
 
 export function calculatePersonDues(
@@ -298,13 +444,15 @@ export function calculatePersonDues(
     }
   }
 
+  const netted = netSettlements(payees, owedBy);
+
   return {
     name: personName,
     totalOwes: personBalance.balance < 0 ? Math.round(-personBalance.balance) : 0,
     totalGetsBack: personBalance.balance > 0 ? Math.round(personBalance.balance) : 0,
     balance: personBalance.balance,
-    payees,
-    owedBy,
+    payees: netted.payees,
+    owedBy: netted.owedBy,
     expenseOwes,
     expenseCollections,
   };

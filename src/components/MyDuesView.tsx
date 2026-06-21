@@ -5,6 +5,8 @@ import { Card } from "./Card";
 import { CopyPhoneButton } from "./CopyPhoneButton";
 import { UserPaidExpenses } from "./UserPaidExpenses";
 
+export const MY_DUES_DETAILS_ID = "my-dues-details";
+
 interface MyDuesViewProps {
   currentUser: string;
   travellers: Traveller[];
@@ -94,6 +96,7 @@ export function MyDuesView({
         )}
       </Card>
 
+      <div id={MY_DUES_DETAILS_ID} className="scroll-mt-4 flex flex-col gap-4">
       <UserPaidExpenses
         personName={currentUser}
         expenses={expenses}
@@ -238,6 +241,7 @@ export function MyDuesView({
             <p className="text-lavender-600/80">Nothing pending on your end.</p>
           </Card>
         )}
+      </div>
     </section>
   );
 }

@@ -11,7 +11,7 @@ import { TabNav } from "./components/TabNav";
 import { ExpenseList } from "./components/ExpenseList";
 import { SplitView } from "./components/SplitView";
 import { PaymentsView } from "./components/PaymentsView";
-import { MyDuesView } from "./components/MyDuesView";
+import { MyDuesView, MY_DUES_DETAILS_ID } from "./components/MyDuesView";
 import { TravellersList } from "./components/TravellersList";
 import { AddExpenseModal } from "./components/AddExpenseModal";
 import { EditExpenseModal } from "./components/EditExpenseModal";
@@ -32,6 +32,7 @@ function App() {
   });
   const [showUserModal, setShowUserModal] = useState(false);
   const [dataReady, setDataReady] = useState(false);
+  const [initialUserResolved, setInitialUserResolved] = useState(false);
 
   const { expenses, loading: expensesLoading, error: expensesError, isDemo: expensesDemo, addExpense, updateExpense, reload: reloadExpenses } = useExpenses();
   const { travellers, loading: travellersLoading, error: travellersError, isDemo: travellersDemo } = useTravellers();
@@ -79,19 +80,21 @@ function App() {
   }, [currentUser, displayExpenses, travellers, splits, balances]);
 
   useEffect(() => {
-    if (!loading && travellers.length > 0) {
-      setDataReady(true);
-      const stored = localStorage.getItem(USER_STORAGE_KEY);
-      const storedIsValid = stored && travellerNames.includes(stored);
+    if (loading || travellers.length === 0 || initialUserResolved) return;
 
-      if (storedIsValid) {
-        setCurrentUser(stored);
-        setShowUserModal(false);
-      } else {
-        setShowUserModal(true);
-      }
+    setInitialUserResolved(true);
+    setDataReady(true);
+
+    const stored = localStorage.getItem(USER_STORAGE_KEY);
+    const storedIsValid = stored && travellers.some((t) => t.name === stored);
+
+    if (storedIsValid) {
+      setCurrentUser(stored);
+      setShowUserModal(false);
+    } else {
+      setShowUserModal(true);
     }
-  }, [loading, travellers.length, travellerNames]);
+  }, [loading, travellers, initialUserResolved]);
 
   const handleUserConfirm = (name: string) => {
     setCurrentUser(name);
@@ -108,8 +111,13 @@ function App() {
     await updateExpense(baseExpense, name, amount);
   };
 
-  const handleAddSubExpense = async (parentName: string, name: string, amount: number) => {
-    await addSubExpense(parentName, name, amount);
+  const handleAddSubExpense = async (
+    parentName: string,
+    name: string,
+    amount: number,
+    participants: string[]
+  ) => {
+    await addSubExpense(parentName, name, amount, participants);
     if (isSheetsConfigured()) {
       await reloadExpenses({ silent: true });
     }
@@ -124,6 +132,22 @@ function App() {
 
   const handleSwitchUser = () => {
     setShowUserModal(true);
+  };
+
+  const handleViewDuesDetails = () => {
+    const scrollToDetails = () => {
+      document.getElementById(MY_DUES_DETAILS_ID)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    };
+
+    if (activeTab !== "dues") {
+      setActiveTab("dues");
+      window.setTimeout(scrollToDetails, 100);
+    } else {
+      scrollToDetails();
+    }
   };
 
   const storedUserName = useMemo(() => {
@@ -149,6 +173,7 @@ function App() {
         travellers={travellers}
         initialName={currentUser ?? storedUserName}
         onConfirm={handleUserConfirm}
+        onCancel={currentUser ? () => setShowUserModal(false) : undefined}
       />
     );
   }
@@ -183,7 +208,7 @@ function App() {
           <div className="mb-4">
             <UserSummaryCard
               dues={userDues}
-              onViewDetails={() => setActiveTab("dues")}
+              onViewDetails={handleViewDuesDetails}
             />
           </div>
         )}

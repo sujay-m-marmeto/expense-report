@@ -53,7 +53,12 @@ export function useSubExpenses() {
   }, [load]);
 
   const addSubExpense = useCallback(
-    async (parentExpenseName: string, name: string, amount: number) => {
+    async (
+      parentExpenseName: string,
+      name: string,
+      amount: number,
+      participants: string[] = []
+    ) => {
       if (!isSheetsConfigured()) {
         const newSub: SubExpense = {
           id: `local-sub-${Date.now()}`,
@@ -61,6 +66,7 @@ export function useSubExpenses() {
           parentExpenseName,
           name,
           amount,
+          participants: participants.length > 0 ? participants : undefined,
         };
         setSubExpenses((prev) => {
           const next = [...prev, newSub];
@@ -70,7 +76,7 @@ export function useSubExpenses() {
         return;
       }
 
-      await addSubExpenseToSheet(parentExpenseName, name, amount);
+      await addSubExpenseToSheet(parentExpenseName, name, amount, participants);
       await load();
     },
     [load]

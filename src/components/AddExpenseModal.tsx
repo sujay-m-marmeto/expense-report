@@ -2,11 +2,17 @@ import { useState } from "react";
 import { Button } from "./Button";
 import { Input } from "./Input";
 import { Select } from "./Select";
+import { ParticipantPicker } from "./ParticipantPicker";
 
 interface AddExpenseModalProps {
   travellers: string[];
   onClose: () => void;
-  onSubmit: (name: string, amount: number, paidBy: string) => Promise<void>;
+  onSubmit: (
+    name: string,
+    amount: number,
+    paidBy: string,
+    participants: string[]
+  ) => Promise<void>;
 }
 
 export function AddExpenseModal({
@@ -17,6 +23,7 @@ export function AddExpenseModal({
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
   const [paidBy, setPaidBy] = useState(travellers[0] ?? "");
+  const [participants, setParticipants] = useState<string[]>([...travellers]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,10 +44,14 @@ export function AddExpenseModal({
       setError("Please select who paid");
       return;
     }
+    if (participants.length === 0) {
+      setError("Please select at least one person to split among");
+      return;
+    }
 
     setSubmitting(true);
     try {
-      await onSubmit(name.trim(), parsedAmount, paidBy);
+      await onSubmit(name.trim(), parsedAmount, paidBy, participants);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add expense");
@@ -100,6 +111,13 @@ export function AddExpenseModal({
             options={travellers}
             value={paidBy}
             onChange={(e) => setPaidBy(e.target.value)}
+          />
+
+          <ParticipantPicker
+            travellers={travellers}
+            selected={participants}
+            onChange={setParticipants}
+            label="Split among"
           />
 
           {error && (

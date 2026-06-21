@@ -6,12 +6,14 @@ interface DuesNameModalProps {
   travellers: Traveller[];
   initialName?: string;
   onConfirm: (name: string) => void;
+  onCancel?: () => void;
 }
 
 export function DuesNameModal({
   travellers,
   initialName,
   onConfirm,
+  onCancel,
 }: DuesNameModalProps) {
   const [selected, setSelected] = useState(initialName ?? travellers[0]?.name ?? "");
 
@@ -28,13 +30,25 @@ export function DuesNameModal({
     >
       <div className="absolute inset-0 bg-lavender-900/30 backdrop-blur-sm" aria-hidden="true" />
       <div className="relative w-full max-w-lg animate-slide-up rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl sm:m-4 safe-area-bottom">
-        <div className="mb-5">
-          <h2 id="dues-name-title" className="text-lg font-bold text-lavender-900">
-            Who are you?
-          </h2>
-          <p className="mt-1 text-sm text-lavender-600/70">
-            Select your name to see your expenses & dues
-          </p>
+        <div className="mb-5 flex items-start justify-between gap-3">
+          <div>
+            <h2 id="dues-name-title" className="text-lg font-bold text-lavender-900">
+              Who are you?
+            </h2>
+            <p className="mt-1 text-sm text-lavender-600/70">
+              Select your name to see your expenses & dues
+            </p>
+          </div>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lavender-500 hover:bg-lavender-100 touch-manipulation"
+              aria-label="Cancel"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <ul className="flex flex-col gap-2 mb-6" aria-label="Select your name">
@@ -74,6 +88,15 @@ export function DuesNameModal({
         <Button fullWidth onClick={() => onConfirm(selected)} disabled={!selected}>
           Continue
         </Button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="mt-3 w-full py-2.5 text-sm font-semibold text-lavender-600 hover:text-lavender-800 touch-manipulation"
+          >
+            Cancel
+          </button>
+        )}
       </div>
     </div>
   );

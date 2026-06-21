@@ -34,7 +34,13 @@ export function Header({ currentUser, onSwitchUser }: HeaderProps) {
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {currentUser && onSwitchUser && (
-            <Button variant="ghost" size="sm" onClick={onSwitchUser} className="!px-2 !py-1.5 text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onSwitchUser}
+              className="min-h-11 !px-3 !py-2.5 text-xs touch-manipulation"
+              aria-label="Switch user"
+            >
               Switch
             </Button>
           )}

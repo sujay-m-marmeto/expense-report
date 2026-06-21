@@ -6,6 +6,7 @@ export interface Expense {
   amount: number;
   paidBy: string;
   date?: string;
+  participants?: string[];
   subExpenses?: SubExpense[];
   hasSubExpenses?: boolean;
 }
@@ -16,6 +17,7 @@ export interface SubExpense {
   parentExpenseName: string;
   name: string;
   amount: number;
+  participants?: string[];
 }
 
 export interface Traveller {
